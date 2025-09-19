@@ -1,0 +1,235 @@
+<aside>
+💡
+
+- jupyter
+    
+    he total **number of values printed** in the history log is **15**, but that includes separate entries for training, validation, and learning rate. However, the **number of components that define the loss function** (which is what the question asks) is based on the fundamental loss terms.
+    
+    Let's analyze:
+    
+    1. **Training Loss** (`loss`)
+    2. **Validation Loss** (`val_loss`)
+    3. **Individual Loss Components for Training**:
+        - `occupancy/conv2d_loss`
+        - `loc/reshape_loss`
+        - `size/reshape_loss`
+        - `angle/conv2d_loss`
+        - `heading/conv2d_loss`
+        - `clf/reshape_loss`
+    4. **Individual Loss Components for Validation**:
+        - `val_occupancy/conv2d_loss`
+        - `val_loc/reshape_loss`
+        - `val_size/reshape_loss`
+        - `val_angle/conv2d_loss`
+        - `val_heading/conv2d_loss`
+        - `val_clf/reshape_loss`
+    5. **Learning Rate** (`lr`)
+    
+    This sums up to **15 values in total**, but **the actual number of components defining the loss function is 6** (since loss components are the same for training and validation, and validation loss itself is not a new component).
+    
+    **Final An**
+    
+    ### Assignment 5: 3D Object Detection Using PointPillars
+    
+    ### Overview:
+    
+    This assignment focuses on 3D object detection using the PointPillars architecture. The goal is to detect objects in a 3D space by assigning bounding boxes and classifications to each object present in the input scene. This involves loading datasets, preprocessing point clouds and labels, creating a Tensorflow model architecture, setting training parameters, training the model, and performing inference.
+    
+    ---
+    
+    ### **Key Concepts**
+    
+    1. **PointPillars Architecture**:
+        - A state-of-the-art neural network architecture for 3D object detection.
+        - Divides the task into three parts:
+            - **Pillar Feature Network**: Creates a grid-based feature map from LiDAR point clouds.
+            - **2D CNN Backbone**: Processes the feature map with convolutional layers.
+            - **Detection Head**: Predicts 3D bounding boxes.
+    2. **LiDAR Point Clouds**:
+        - Represent 3D spatial data captured by Light Detection and Ranging sensors.
+        - Each point has (x, y, z) coordinates and additional features like intensity.
+    3. **Bounding Box Representation**:
+        - 3D bounding boxes are defined by:
+            - Center (x, y, z)
+            - Dimensions (length, width, height)
+            - Orientation (yaw angle)
+    4. **Dataset**:
+        - KITTI dataset: Contains 7481 manually annotated point clouds.
+        - For this assignment, only 200 labeled point clouds are used due to computational constraints.
+    5. **Non-Maximum Suppression (NMS)**:
+        - Filters overlapping bounding box predictions based on confidence scores and Intersection over Union (IoU).
+    
+    ---
+    
+    ### **Important Process Flow**
+    
+    1. **Data Loading and Preprocessing**:
+        - Read LiDAR point clouds, labels, and calibration files.
+        - Transform labels into LiDAR coordinate systems.
+    2. **Dataset Splitting**:
+        - Divide the dataset into training (70%), validation (20%), and test (10%) subsets.
+    3. **Model Building**:
+        - Construct the PointPillars architecture using Tensorflow.
+        - Include the Pillar Feature Network, CNN backbone, and detection head.
+    4. **Training**:
+        - Train the model using the `fit()` function with training and validation datasets.
+    5. **Inference**:
+        - Perform predictions on the test dataset.
+        - Apply filtering and NMS to generate final bounding box outputs.
+    6. **Evaluation**:
+        - Visualize ground truth and predicted bounding boxes for qualitative analysis.
+    
+    ---
+    
+    ### **Functions**
+    
+    1. **`read_lidar(file_name)`**:
+        - Reads LiDAR point cloud data from a binary file.
+    2. **`read_label(file_name)`**:
+        - Reads label information from a text file.
+    3. **`read_calibration(file_name)`**:
+        - Reads calibration matrices for transforming labels into LiDAR coordinates.
+    4. **`transform_labels_into_lidar_coordinates(labels, R, t)`**:
+        - Transforms labels from camera coordinates to LiDAR coordinates.
+    5. **`setUpPlot()`**:
+        - Sets up the plot for visualizing point clouds and bounding boxes.
+    6. **`plot2DVertices(ax, FL, FR, RR, RL)`**:
+        - Plots 2D vertices of a bounding box in a bird's eye view.
+    7. **`build_cnn_backbone(pillars, params)`**:
+        - Constructs the CNN backbone with three blocks (Block1, Block2, Block3).
+    8. **`generate_bboxes_from_pred(...)`**:
+        - Generates bounding boxes from model predictions.
+    9. **`rotational_nms(set_boxes, confidences, ...)`**:
+        - Applies Non-Maximum Suppression to filter overlapping bounding boxes.
+    
+    ---
+    
+    ### **Terms and Parameters**
+    
+    1. **Parameters (`Parameters` Class)**:
+        - Defines configuration settings for the model and training process.
+        - Key parameters:
+            - `batch_size`: Number of samples per training batch (default: 1).
+            - `learning_rate`: Initial learning rate for optimizer (default: 0.0002).
+            - `iters_to_decay`: Number of iterations before learning rate decay.
+            - `total_training_epochs`: Total number of epochs for training (default: 160).
+            - `anchor_dims`: Dimensions of anchor boxes for different classes.
+    2. **Loss Functions**:
+        - Localization loss: Measures error in predicted positions.
+        - Dimension loss: Measures error in predicted sizes.
+        - Angle/Heading loss: Measures error in orientation.
+        - Classification loss: Measures error in class prediction.
+    3. **Thresholds**:
+        - `score_threshold`: Minimum confidence score for considering a prediction.
+        - `iou_threshold`: Minimum IoU for suppressing overlapping boxes.
+    
+    ---
+    
+    ### **Formulas**
+    
+    1. **Vertex Calculation**:
+        - Compute front-left (FL), front-right (FR), rear-left (RL), and rear-right (RR) vertices of a bounding box:
+        \[
+        v_l = [\cos(\theta) \cdot \frac{l}{2}, \sin(\theta) \cdot \frac{l}{2}]
+        \]
+        \[
+        v_w = [-\sin(\theta) \cdot \frac{w}{2}, \cos(\theta) \cdot \frac{w}{2}]
+        \]
+        \[
+        FL = [x + v_{l_x} + v_{w_x}, y - v_{l_y} + v_{w_y}, z]
+        \]
+    2. **IoU (Intersection over Union)**:
+        - Measures overlap between two bounding boxes:
+        \[
+        \text{IoU} = \frac{\text{Area of Overlap}}{\text{Area of Union}}
+        \]
+    
+    ---
+    
+    ### **Input, Output, and Sizes**
+    
+    1. **Input**:
+        - LiDAR point clouds: Shape `(max_pillars, max_points_per_pillar, nb_features)`
+        - Labels: Contains object class, dimensions, position, and orientation.
+    2. **Output**:
+        - Occupancy: Shape `(batch_size, grid_height, grid_width, num_anchors)`
+        - Position: Shape `(batch_size, grid_height, grid_width, num_anchors, 3)`
+        - Size: Shape `(batch_size, grid_height, grid_width, num_anchors, 3)`
+        - Angle: Shape `(batch_size, grid_height, grid_width, num_anchors)`
+        - Heading: Shape `(batch_size, grid_height, grid_width, num_anchors)`
+        - Classification: Shape `(batch_size, grid_height, grid_width, num_anchors, num_classes)`
+    3. **Sizes**:
+        - Grid size: \(X_n = Y_n = 504\)
+        - Pillar size: \(max\_pillars = 12000\), \(max\_points\_per\_pillar = 100\)
+    
+    ---
+    
+    ### **Process Flow Details**
+    
+    1. **Task 1: Plot Sample 3D Point Cloud with Labels**
+        - Visualize point clouds and labels in a bird's eye view.
+        - Calculate vertices of bounding boxes using length, width, and yaw angle.
+    2. **Task 2: Training/Validation/Test Split**
+        - Create datasets using the `SimpleDataGenerator` class.
+        - Ensure the split follows a 70/20/10 ratio.
+    3. **Task 3: Building Neural Network Model**
+        - Implement the CNN backbone with three blocks (Block1, Block2, Block3).
+        - Use convolutional layers, batch normalization, and ReLU activation.
+    4. **Task 4: Training**
+        - Use the `fit()` function to train the model.
+        - Monitor training progress with callbacks (TensorBoard, LearningRateScheduler, EarlyStopping).
+    5. **Task 5: Finding Suitable Thresholds**
+        - Manually adjust `score_threshold` and `iou_threshold` for post-processing.
+        - Evaluate performance using visualization.
+    
+    ---
+    
+    ### **Summary**
+    
+    - **Learned Concepts**:
+        - 3D object detection using deep learning.
+        - Representation of 3D bounding boxes.
+        - Setting up and training a Tensorflow model.
+        - Post-processing techniques like filtering and NMS.
+    - **Skills Developed**:
+        - Handling LiDAR point clouds and annotations.
+        - Building and training complex neural network architectures.
+        - Evaluating and improving model performance through parameter tuning.
+    
+    This assignment provides hands-on experience with state-of-the-art 3D object detection techniques and prepares learners for real-world applications in autonomous driving and robotics.
+    
+    ![image.png](attachment:07943e5c-0d1e-4fd5-be82-67c04058135c:image.png)
+    
+- ros
+    
+    ```c
+    enum ika_object_types {
+      UNCLASSIFIED = 0,
+      PEDESTRIAN = 1,
+      BICYCLE = 2,
+      MOTORBIKE = 3,
+      CAR = 4,
+      TRUCK = 5,
+      VAN = 6,
+      BUS = 7,
+      ANIMAL = 8,
+      ROAD_OBSTACLE = 9,
+      TRAILER = 10,
+      TYPES_COUNT = 11
+    };
+    e will focus in this assignment on the classes CAR, PEDESTRIAN, TRUCK and BIKE. 
+    ```
+    
+    The following code snippet presents an excerpt from the file [IkaObject.msg](https://github.com/ika-rwth-aachen/acdc/blob/main/catkin_workspace/src/dependencies/definitions/msg/IkaObject.msg). As shown below, each object has a **state vector** which holds current values of the object, such as the **position**, **velocity**, **acceleration** and the **3D bounding box**.
+    
+    ```bash
+    float32[] fMean# Statevector, containing attributes depend on chosen motion model
+    float32[] fCovariance# Covariance-Matrix, containing attributes depend on chosen motion model
+    ```
+    
+    As each quantity might be estimated by the AV's sensors and its perception algorithms, which are not perfect, we need to consider uncertainties as well. The **state covariance vector** stores such uncertainties, which are necessary in later processing steps such as the object fusion.
+    
+    In this assignment we will focus purely on 3D object detection. That means, we will just consider the state vector `fMean`, which basically describe an object's bounding box.
+    
+- 
+</aside>

@@ -1,0 +1,401 @@
+<aside>
+💡
+
+- tak1
+    
+    task 1 jupyter notes summary:
+    
+    ### Structured Notes on Semantic Image Segmentation Assignment
+    
+    ### **Objective:**
+    
+    The objective of this assignment is to train a neural network to perform semantic image segmentation. Semantic image segmentation involves assigning a semantic class to every pixel in an input image. The assignment walks through the following steps:
+    
+    1. Loading a dataset for semantic image segmentation.
+    2. Converting between different label encodings of segmented images.
+    3. Creating a TensorFlow input pipeline.
+    4. Constructing a deep learning model for semantic image segmentation.
+    5. Training the model and performing inference on the model.
+    
+    ---
+    
+    ### **Important Terms, Functions, Inputs, Outputs, and Parameters**
+    
+    ### **Key Terms:**
+    
+    - **Semantic Image Segmentation:** Assigning a semantic class to every pixel in an image.
+    - **Segmentation Map:** A representation where each pixel is assigned a class label (integer).
+    - **One-Hot Encoding:** A representation where each class is represented as a binary vector.
+    - **RGB Encoding:** Each class is represented by a specific RGB color.
+    - **U-Net Architecture:** A convolutional neural network architecture used for image segmentation.
+    
+    ### **Functions:**
+    
+    1. **`convert_rgb_encoding_to_segmentation_map(image, rgb_to_class_id)`**
+        - **Input:**
+            - `image`: A tensor of shape `[height, width, 3]` containing RGB values.
+            - `rgb_to_class_id`: A dictionary mapping RGB colors to class IDs.
+        - **Output:**
+            - `segmentation_map`: A tensor of shape `[height, width, 1]` containing class IDs for each pixel.
+        - **Important Parameters:**
+            - `tf.where`: Used to update the segmentation map based on a condition.
+            - `tf.equal`: Compares the image pixels with the RGB color.
+            - `tf.reduce_all`: Reduces the boolean mask along the last axis.
+    2. **`parse_sample(image_path, label_path)`**
+        - **Input:**
+            - `image_path`: Path to the RGB image.
+            - `label_path`: Path to the label image.
+        - **Output:**
+            - `image_rgb`: Resized RGB image tensor of shape `[368, 1248, 3]`.
+            - `label_segmentation_map`: Segmentation map tensor of shape `[368, 1248, 1]`.
+        - **Important Parameters:**
+            - `tf.image.decode_png`: Decodes PNG images.
+            - `tf.image.resize`: Resizes images to a uniform size.
+    3. **`normalize(image, label)`**
+        - **Input:**
+            - `image`: RGB image tensor with values in range `[0, 255]`.
+            - `label`: Segmentation map tensor.
+        - **Output:**
+            - `image`: Normalized image tensor with values in range `[0, 1]`.
+            - `label`: Unchanged segmentation map tensor.
+        - **Important Parameters:**
+            - `tf.cast`: Casts the image to `tf.float32`.
+            - Division by `255.0` to normalize the image.
+    4. **`create_dataset(images_path, labels_path, batch_size, buffer_size)`**
+        - **Input:**
+            - `images_path`: List of paths to RGB images.
+            - `labels_path`: List of paths to label images.
+            - `batch_size`: Number of samples per batch.
+            - `buffer_size`: Size of the buffer for shuffling.
+        - **Output:**
+            - `dataset`: A TensorFlow dataset object.
+        - **Important Parameters:**
+            - `tf.data.Dataset.from_tensor_slices`: Creates a dataset from slices of tensors.
+            - `shuffle`: Shuffles the dataset.
+            - `map`: Applies a function to each element.
+            - `batch`: Batches the dataset.
+            - `prefetch`: Prefetches data for better performance.
+    5. **`getModel(input_shape, num_classes, udepth, filters1, kernel_size, activation, batch_norm, dropout)`**
+        - **Input:**
+            - `input_shape`: Shape of the input tensor.
+            - `num_classes`: Number of classes to predict.
+            - `udepth`: Depth of the U-Net.
+            - `filters1`: Number of filters in the first layer.
+            - `kernel_size`: Size of the convolutional kernel.
+            - `activation`: Activation function.
+            - `batch_norm`: Whether to use batch normalization.
+            - `dropout`: Dropout rate.
+        - **Output:**
+            - `segmentation_model`: A Keras model for semantic segmentation.
+        - **Important Parameters:**
+            - `Conv2D`: Convolutional layer.
+            - `Conv2DTranspose`: Transposed convolutional layer.
+            - `BatchNormalization`: Batch normalization layer.
+            - `Dropout`: Dropout layer.
+            - `Softmax`: Activation function for the output layer.
+    6. **`segmentation_map_to_rgb_encoding(segmentation_map, rgb_to_class_id)`**
+        - **Input:**
+            - `segmentation_map`: A numpy array of shape `[height, width, 1]`.
+            - `rgb_to_class_id`: Dictionary mapping RGB colors to class IDs.
+        - **Output:**
+            - `rgb_encoding`: A numpy array of shape `[height, width, 3]` containing RGB values.
+        - **Important Parameters:**
+            - `numpy index assignment`: Assigns RGB colors based on class IDs.
+    
+    ---
+    
+    ### **Data Input and Output Sizes and Types**
+    
+    1. **Input Data:**
+        - **RGB Images:** Shape `[368, 1248, 3]`, type `tf.uint8`.
+        - **Label Images:** Shape `[368, 1248, 3]`, type `tf.uint8`.
+    2. **Output Data:**
+        - **Segmentation Map:** Shape `[368, 1248, 1]`, type `tf.uint8`.
+        - **Normalized Images:** Shape `[368, 1248, 3]`, type `tf.float32`.
+        - **Model Predictions:** Shape `[batch_size, 368, 1248, num_classes]`, type `tf.float32`.
+    
+    ---
+    
+    ### **Code Flow Process**
+    
+    1. **Dataset Preparation:**
+        - Load image and label paths.
+        - Shuffle the dataset.
+        - Parse each sample using `parse_sample`.
+        - Normalize the images using `normalize`.
+        - Create a TensorFlow dataset using `create_dataset`.
+        - Split the dataset into training and validation sets.
+    2. **Model Construction:**
+        - Define the U-Net architecture using `getModel`.
+        - Compile the model with an optimizer, loss function, and metrics.
+    3. **Model Training:**
+        - Train the model using the training dataset.
+        - Validate the model using the validation dataset.
+    4. **Model Inference:**
+        - Load a pretrained model.
+        - Perform inference on a sample image.
+        - Convert the model's output (one-hot encoding) to a segmentation map.
+        - Convert the segmentation map to RGB encoding for visualization.
+    
+    ---
+    
+    ### **Summary**
+    
+    This assignment focuses on building and training a U-Net model for semantic image segmentation using the KITTI dataset. The key steps include:
+    
+    - Preparing the dataset by loading, parsing, and normalizing images and labels.
+    - Constructing a U-Net model with an encoder-decoder architecture.
+    - Training the model and evaluating its performance.
+    - Performing inference and visualizing the segmentation results.
+    
+    The assignment emphasizes the importance of data preprocessing, model architecture, and post-processing steps like converting segmentation maps to RGB encodings for better visualization. The U-Net model, known for its effectiveness in image segmentation tasks, is used to achieve high-quality segmentation results.
+    
+- task2 ros2
+    
+    [**sensor_msgs](https://docs.ros2.org/latest/api/sensor_msgs/index-msg.html)/msg/Image.msg Message**
+    
+    ```jsx
+    std_msgs/msg/Header header
+    uint32 height
+    uint32 width
+    string encoding
+    uint8 is_bigendian
+    uint32 step
+    uint8[] data
+    ```
+    
+    MobilnetV3 architecture:
+    
+    - `mobilenet_v3_large_968_608_os8.pb`: Larger model, slower inference, more RAM needed
+    - `mobilenet_v3_small_968_608_os8.pb`: Smaller model, faster inference, less RAM needed
+    
+    ### **Nodes & Topics in `image_segmentation_r2.launch.py`**
+    
+    ### **1. `rosbag_play_node`**
+    
+    - **Function**: Replays a recorded ROS 2 bag file.
+    - **Topics Published**:
+        - `/sensors/camera/left/image_raw` (Raw camera image)
+        - `/sensors/camera/left/camera_info` (Camera metadata)
+    
+    ### **2. `image_proc_node`**
+    
+    - **Function**: Processes raw images (e.g., rectification).
+    - **Subscribed Topic**: `/sensors/camera/left/image_raw`
+    - **Published Topic**: `/sensors/camera/left/image_rect`
+    
+    ### **3. `camera_segmentation_node`**
+    
+    - **Function**: Performs image segmentation.
+    - **Subscribed Topic**: `/sensors/camera/left/image_color`
+    - **Published Topic**: `/image_segmented`
+    
+    ### **4. `segmentation_viewer_node`**
+    
+    - **Function**: Displays segmented images.
+    - **Subscribed Topic**: `/image_segmented`
+    
+    ### **5. `camera_node`**
+    
+    - **Function**: Displays the original camera feed.
+    - **Subscribed Topic**: `/sensors/camera/left/image_color`
+    
+    Would you like any modifications or explanations? 🚀
+    
+    ![image.png](attachment:8526d5b3-7656-4994-9ae8-a8a8acfbc13d:image.png)
+    
+- boosting
+    
+    ### tructured Notes on Boosting Semantic Image Segmentation Assignment
+    
+    ---
+    
+    ### **Objective:**
+    
+    The objective of this assignment is to improve the performance of a semantic image segmentation model using **data augmentation**. Data augmentation artificially increases the size of the training dataset by applying transformations to the existing data. This approach helps the model generalize better without requiring additional labeled data. The assignment focuses on:
+    
+    1. Implementing various augmentation methods for semantic image segmentation.
+    2. Creating an augmentation policy to apply multiple augmentations in a structured way.
+    3. Integrating the augmentation pipeline into the dataset.
+    4. Comparing the performance of models trained with and without augmentation.
+    
+    ---
+    
+    ### **Important Terms, Functions, Inputs, Outputs, and Parameters**
+    
+    ### **Key Terms:**
+    
+    - **Data Augmentation:** Techniques to artificially increase the size of a dataset by applying transformations (e.g., flipping, zooming, brightness adjustment).
+    - **Augmentation Policy:** A set of rules defining how and when to apply augmentation methods.
+    - **Semantic Image Segmentation:** Assigning a semantic class to each pixel in an image.
+    - **U-Net Architecture:** A convolutional neural network architecture commonly used for image segmentation tasks.
+    
+    ### **Functions:**
+    
+    1. **`random_flip(image, label)`**
+        - **Input:**
+            - `image`: Tensor of shape `[height, width, 3]` (RGB image).
+            - `label`: Tensor of shape `[height, width]` (segmentation map).
+        - **Output:**
+            - `image`: Augmented image tensor.
+            - `label`: Augmented label tensor.
+        - **Important Parameters:**
+            - `tf.cond`: Conditionally applies flipping based on a random probability.
+            - `tf.image.flip_left_right`: Flips the image and label horizontally.
+    2. **`random_gamma(image, label)`**
+        - **Input:**
+            - `image`: Tensor of shape `[height, width, 3]`.
+            - `label`: Tensor of shape `[height, width]`.
+        - **Output:**
+            - `image`: Gamma-corrected image tensor.
+            - `label`: Unchanged label tensor.
+        - **Important Parameters:**
+            - `tf.random.uniform`: Generates a random gamma value.
+            - `tf.image.adjust_gamma`: Applies gamma correction to the image.
+    3. **`random_brightness(image, label)`**
+        - **Input:**
+            - `image`: Tensor of shape `[height, width, 3]`.
+            - `label`: Tensor of shape `[height, width]`.
+        - **Output:**
+            - `image`: Brightness-adjusted image tensor.
+            - `label`: Unchanged label tensor.
+        - **Important Parameters:**
+            - `tf.image.random_brightness`: Adjusts the brightness of the image.
+    4. **`random_contrast(image, label)`**
+        - **Input:**
+            - `image`: Tensor of shape `[height, width, 3]`.
+            - `label`: Tensor of shape `[height, width]`.
+        - **Output:**
+            - `image`: Contrast-adjusted image tensor.
+            - `label`: Unchanged label tensor.
+        - **Important Parameters:**
+            - `tf.image.random_contrast`: Adjusts the contrast of the image.
+    5. **`random_noise(image, label)`**
+        - **Input:**
+            - `image`: Tensor of shape `[height, width, 3]`.
+            - `label`: Tensor of shape `[height, width]`.
+        - **Output:**
+            - `image`: Image tensor with added Gaussian noise.
+            - `label`: Unchanged label tensor.
+        - **Important Parameters:**
+            - `tf.random.normal`: Generates Gaussian noise.
+            - `tf.clip_by_value`: Clips image values to the range `[0, 255]`.
+    6. **`random_zoom(image, label)`**
+        - **Input:**
+            - `image`: Tensor of shape `[height, width, 3]`.
+            - `label`: Tensor of shape `[height, width]`.
+        - **Output:**
+            - `image`: Zoomed and cropped image tensor.
+            - `label`: Zoomed and cropped label tensor.
+        - **Important Parameters:**
+            - `tf.image.resize`: Resizes the image and label.
+            - `tf.image.crop_to_bounding_box`: Crops the image and label to the original size.
+    7. **`apply_augmentation_subpolicy(image, label, subpolicy)`**
+        - **Input:**
+            - `image`: Tensor of shape `[height, width, 3]`.
+            - `label`: Tensor of shape `[height, width]`.
+            - `subpolicy`: List of tuples containing augmentation functions and their probabilities.
+        - **Output:**
+            - `image`: Augmented image tensor.
+            - `label`: Augmented label tensor.
+        - **Important Parameters:**
+            - `tf.cond`: Conditionally applies augmentation based on probability.
+    8. **`apply_augmentation_policy(image, label, policy)`**
+        - **Input:**
+            - `image`: Tensor of shape `[height, width, 3]`.
+            - `label`: Tensor of shape `[height, width]`.
+            - `policy`: Dictionary containing subpolicies for augmentation.
+        - **Output:**
+            - `image`: Augmented image tensor.
+            - `label`: Augmented label tensor.
+        - **Important Parameters:**
+            - `tf.random.uniform`: Randomly selects a subpolicy.
+            - `tf.cond`: Applies the selected subpolicy.
+    9. **`create_dataset(images_path, labels_path, batch_size, buffer_size, do_augmentation)`**
+        - **Input:**
+            - `images_path`: List of paths to RGB images.
+            - `labels_path`: List of paths to label images.
+            - `batch_size`: Number of samples per batch.
+            - `buffer_size`: Size of the buffer for shuffling.
+            - `do_augmentation`: Boolean to enable/disable augmentation.
+        - **Output:**
+            - `dataset`: TensorFlow dataset object.
+        - **Important Parameters:**
+            - `tf.data.Dataset.from_tensor_slices`: Creates a dataset from image and label paths.
+            - `map`: Applies augmentation and normalization functions.
+            - `batch`: Batches the dataset.
+            - `prefetch`: Prefetches data for better performance.
+    
+    ---
+    
+    ### **Data Input and Output Sizes and Types**
+    
+    1. **Input Data:**
+        - **RGB Images:** Shape `[height, width, 3]`, type `tf.uint8`.
+        - **Label Images:** Shape `[height, width]`, type `tf.uint8`.
+    2. **Output Data:**
+        - **Augmented Images:** Shape `[height, width, 3]`, type `tf.uint8` or `tf.float32`.
+        - **Augmented Labels:** Shape `[height, width]`, type `tf.uint8`.
+    
+    ---
+    
+    ### **Code Flow Process**
+    
+    1. **Dataset Preparation:**
+        - Load image and label paths.
+        - Shuffle the dataset.
+        - Parse each sample using `parse_sample`.
+        - Apply augmentation using `apply_augmentation_policy` if `do_augmentation` is True.
+        - Normalize the images using `normalize`.
+        - Create a TensorFlow dataset using `create_dataset`.
+        - Split the dataset into training and validation sets.
+    2. **Model Construction:**
+        - Define the U-Net architecture using `getModel`.
+        - Compile the model with an optimizer, loss function, and metrics.
+    3. **Model Training:**
+        - Train the model using the augmented training dataset.
+        - Validate the model using the validation dataset.
+    4. **Model Comparison:**
+        - Compare the performance of models trained with and without augmentation.
+        - Evaluate the models on the validation dataset.
+    5. **Model Inference:**
+        - Perform inference on a sample image using the trained model.
+        - Visualize the segmentation results.
+    
+    ---
+    
+    ### **Approach of the Assignment**
+    
+    1. **Implement Augmentation Methods:**
+        - Implement functions for flipping, gamma correction, brightness adjustment, contrast adjustment, noise addition, and zooming.
+        - Test each augmentation method to ensure correctness.
+    2. **Create Augmentation Policy:**
+        - Define a policy that combines multiple augmentation methods.
+        - Apply the policy to the dataset using `apply_augmentation_policy`.
+    3. **Integrate Augmentation into Dataset Pipeline:**
+        - Modify the dataset creation function to include augmentation.
+        - Ensure that augmentation is only applied to the training dataset.
+    4. **Train and Compare Models:**
+        - Train one model without augmentation and another with augmentation.
+        - Compare their performance on the validation dataset using metrics like loss and Mean IoU.
+    5. **Visualize Results:**
+        - Visualize the segmentation maps and RGB encodings for both the model predictions and ground truth labels.
+    
+    ---
+    
+    ### **Summary**
+    
+    This assignment demonstrates the importance of **data augmentation** in improving the performance of semantic image segmentation models. By artificially increasing the size of the training dataset through transformations like flipping, zooming, and brightness adjustment, the model learns to generalize better and achieves higher accuracy. The augmentation policy ensures a diverse set of transformations, further enhancing the model's robustness. The comparison between models trained with and without augmentation highlights the significant impact of augmentation on model performance.
+    
+
+```python
+# create publisher for passing on depth estimation and camera info      
+        self.pub_seg = self.create_publisher(Image, "/image_segmented", 10)
+        # listen for input image and camera info
+        self.sub_image = self.create_subscription(Image, "/image_color", self.predict, 10) # buff_size = 500 MB
+publishing        
+self.pub_seg.publish(seg_msg)
+
+```
+
+</aside>

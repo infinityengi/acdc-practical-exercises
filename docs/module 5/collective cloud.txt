@@ -1,0 +1,208 @@
+<aside>
+💡
+
+- task1
+    
+    
+    ### Structured Explanation Notes for the Assignment
+    
+    ---
+    
+    ### **Introduction**
+    
+    - **Objective**: The workshop aims to teach how to receive and process V2X (Vehicle-to-Everything) messages using MQTT (Message Queuing Telemetry Transport).
+    - **Use Cases**:
+        - **Cloud-based Object Fusion**: Fusing object lists from multiple infrastructure sensors.
+        - **SPaT/MAP Processing**: For trajectory planning (covered in Section 4).
+    - **MQTT Protocol**: Used for message transmission via a broker (`mosquitto`).
+    - **Repository Structure**: `${REPOSITORY}/catkin_workspace/src/workshops/section_5` contains three ROS packages. Only `mqtt_launchpack` and packages from Section 3 are needed for this task.
+    
+    ---
+    
+    ### **Key Concepts**
+    
+    1. **V2X Communication**:
+        - Enables vehicles and infrastructure to exchange data.
+        - Use cases include traffic management, collision avoidance, and real-time updates.
+    2. **MQTT**:
+        - Lightweight publish-subscribe messaging protocol.
+        - Components:
+            - **Broker**: Acts as a central hub for message routing.
+            - **Publisher**: Sends messages to topics.
+            - **Subscriber**: Receives messages from topics.
+    3. **Object Fusion**:
+        - Combines sensor data from multiple sources to produce a single, coherent representation.
+        - Algorithms like Kalman filters or probabilistic fusion techniques are often used.
+    4. **Infrastructure Sensors**:
+        - Station A and Station B at the intersection of Campus-Boulevard and Forckenbeckstraße.
+        - Publish object lists (`ikaObjectList`) via MQTT.
+    5. **ROS Integration**:
+        - Uses `mqtt_client` package to bridge MQTT and ROS.
+        - Converts MQTT messages into ROS topics.
+    6. **RVIZ**:
+        - Visualization tool for ROS.
+        - Displays sensor data, fused object lists, and other relevant information.
+    
+    ---
+    
+    ### **Important Processes and Functions**
+    
+    1. **Task 1: Configure the Bridge**
+        - **Input**:
+            - MQTT broker address: `broker.hivemq.com`.
+            - Topics:
+                - Station A: `ika_acdc_22/objectList_a`.
+                - Station B: `ika_acdc_22/objectList_b`.
+        - **Process**:
+            - Create a parameter file (`v2x_object_fusion_params.yaml`) based on the demo configuration.
+            - Set `bridge.type` to `mqtt2ros` for converting MQTT messages to ROS topics.
+        - **Output**:
+            - ROS topics `/topicA` and `/topicB` containing object lists.
+    2. **Task 2: Visualize Object Lists**
+        - **Input**:
+            - ROS topics `/topicA` and `/topicB`.
+        - **Process**:
+            - Launch RVIZ configuration (`cloud_processing_vizu.launch`).
+            - Update RVIZ settings to subscribe to `/topicA` and `/topicB`.
+        - **Output**:
+            - Visualization of object lists in RVIZ.
+    3. **Task 3: Fuse Object Lists**
+        - **Input**:
+            - ROS topics `/topicA` and `/topicB`.
+        - **Process**:
+            - Modify `config_inout.yaml` in `object_fusion_wrapper`:
+                - Update `input_topics.object_lists` to `[ /topicA, /topicB ]`.
+                - Remove `ego_motion` parameter (no ego vehicle).
+                - Set output topic (`/TopicFusion`) and frame ID (`map`).
+            - Launch fusion node (`fusion.launch`).
+        - **Output**:
+            - Fused object list published on `/TopicFusion`.
+    
+    ---
+    
+    ### **Terms and Definitions**
+    
+    | Term | Definition |
+    | --- | --- |
+    | V2X | Vehicle-to-Everything communication. |
+    | MQTT | Message Queuing Telemetry Transport protocol. |
+    | Broker | Central server that routes messages between publishers and subscribers. |
+    | Publisher | Sends messages to topics. |
+    | Subscriber | Receives messages from topics. |
+    | ikaObjectList | Custom message type for object lists in ROS. |
+    | Nodelet | Lightweight ROS node for resource-efficient computation. |
+    | RVIZ | ROS visualization tool. |
+    | Kalman Filter | Algorithm for estimating the state of a system based on noisy measurements. |
+    
+    ---
+    
+    ### **Formulas**
+    
+    - **Kalman Filter Update Equations**:
+        - Prediction Step:
+        \[
+        \hat{x}*{k|k-1} = F_k \hat{x}*{k-1|k-1} + B_k u_k
+        \]
+        \[
+        P_{k|k-1} = F_k P_{k-1|k-1} F_k^T + Q_k
+        \]
+        - Update Step:
+        \[
+        K_k = P_{k|k-1} H_k^T (H_k P_{k|k-1} H_k^T + R_k)^{-1}
+        \]
+        \[
+        \hat{x}*{k|k} = \hat{x}*{k|k-1} + K_k (z_k - H_k \hat{x}*{k|k-1})
+        \]
+        \[
+        P*{k|k} = (I - K_k H_k) P_{k|k-1}
+        \]
+    
+    ---
+    
+    ### **Input, Outputs, and Process Flow**
+    
+    1. **Input**:
+        - MQTT messages from Station A and Station B.
+        - Topics: `ika_acdc_22/objectList_a` and `ika_acdc_22/objectList_b`.
+    2. **Process Flow**:
+        - Convert MQTT messages to ROS topics using `mqtt_client`.
+        - Visualize object lists in RVIZ.
+        - Apply object fusion algorithm to combine data from `/topicA` and `/topicB`.
+    3. **Output**:
+        - Fused object list published on `/TopicFusion`.
+        - Visualization in RVIZ showing fused objects in green.
+    
+    ---
+    
+    ### **Data Sizes**
+    
+    - **Object List Size**:
+        - Each object list contains six objects.
+        - Each object includes attributes like position, velocity, and classification.
+    - **Message Frequency**:
+        - Depends on sensor update rates (e.g., 10 Hz for cameras, 20 Hz for radar).
+    
+    ---
+    
+    ### **Network Architectures and Models**
+    
+    - **MQTT Architecture**:
+        - **Publisher-Subscriber Model**:
+            - Publishers send messages to topics.
+            - Subscribers receive messages from topics.
+        - **Broker**:
+            - Routes messages between publishers and subscribers.
+    - **Object Fusion Model**:
+        - **Algorithm**:
+            - Probabilistic fusion using Kalman filters.
+        - **Inputs**:
+            - Multiple object lists with position and velocity data.
+        - **Outputs**:
+            - Single fused object list with reduced uncertainty.
+    
+    ---
+    
+    ### **Hyperparameters and Parameters**
+    
+    1. **MQTT Parameters**:
+        - Broker Address: `broker.hivemq.com`.
+        - Port: `1883`.
+        - Topics: `ika_acdc_22/objectList_a`, `ika_acdc_22/objectList_b`.
+    2. **Object Fusion Parameters**:
+        - Input Topics: `/topicA`, `/topicB`.
+        - Output Topic: `/TopicFusion`.
+        - Frame ID: `map`.
+    3. **Kalman Filter Parameters**:
+        - Process Noise Covariance (`Q`).
+        - Measurement Noise Covariance (`R`).
+        - Initial State Estimate (`\\hat{x}_0`).
+        - Initial Error Covariance (`P_0`).
+    
+    ---
+    
+    ### **Wrap-up**
+    
+    - **Learned Skills**:
+        - Receiving MQTT messages and integrating them into ROS.
+        - Visualizing object lists in RVIZ.
+        - Applying object fusion algorithms to real-world scenarios.
+    - **Next Steps**:
+        - Explore SPaT/MAP processing for trajectory planning (Section 4).
+        - Experiment with different fusion algorithms and parameters.
+    
+    ---
+    
+    ### **References**
+    
+    1. [MQTT Protocol Documentation](https://mqtt.org/)
+    2. [ROS mqtt_client Package](https://github.com/pirobot/ros-mqtt)
+    3. [Kalman Filter Tutorial](https://www.kalmanfilter.net/)
+    4. [RVIZ User Guide](http://wiki.ros.org/rviz/UserGuide)
+
+![image.png](attachment:eba1101c-4859-4487-8d3a-276feb306653:image.png)
+
+- task2
+
+![image.png](attachment:19fb48c5-8586-45b8-9c53-63ff56ebdeaa:image.png)
+
+</aside>

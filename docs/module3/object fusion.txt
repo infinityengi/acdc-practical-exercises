@@ -1,0 +1,216 @@
+<aside>
+💡
+
+- notes
+    
+    
+    ![image.png](attachment:d9fd2747-e072-487e-8f5d-94fae4b116a2:image.png)
+    
+    [fusion.pdf](attachment:fa0ef583-2b42-4a9a-8656-e6dd5ef0bdb6:fusion.pdf)
+    
+- notes2
+    
+    task
+    
+    ### Structured Explanation Notes for the Assignment
+    
+    ---
+    
+    ### **1. Overview**
+    
+    This assignment focuses on completing the Kalman Filter implementation for object fusion in a multi-sensor fusion pipeline for autonomous driving. The goal is to implement the measurement update step of the Kalman Filter and explore the effects of various fusion parameters (e.g., process noise matrix, association thresholds) on the fused object's behavior.
+    
+    The task involves:
+    
+    1. Implementing the Kalman Filter measurement update equations.
+    2. Tuning parameters such as the process noise matrix (`Q`) and association thresholds (Mahalanobis distance and IoU).
+    3. Observing the effects of parameter changes on the fused object's behavior.
+    
+    ---
+    
+    ### **2. Key Concepts**
+    
+    - **Kalman Filter**: A recursive algorithm used for state estimation in dynamic systems. It combines predictions from a motion model with measurements from sensors to produce an optimal estimate.
+    - **Object Fusion**: The process of combining information from multiple sensor detections into a single, more accurate global track.
+    - **Process Noise Matrix (`Q`)**: Represents the uncertainty in the motion model. Larger values indicate higher uncertainty.
+    - **Measurement Noise Matrix (`R`)**: Represents the uncertainty in sensor measurements.
+    - **Association Thresholds**:
+        - **Mahalanobis Distance**: Measures the statistical distance between two objects, accounting for correlations and scales.
+        - **Intersection over Union (IoU)**: Measures the overlap between two bounding boxes.
+    
+    ---
+    
+    ### **3. Important Processes**
+    
+    1. **Kalman Filter Measurement Update**:
+        - Computes the innovation vector (`z - C * x_hat_G`).
+        - Updates the state estimate (`x_hat_G`) and covariance matrix (`P`) using the Kalman gain (`K`).
+    2. **Parameter Tuning**:
+        - Adjust the diagonal entries of the `time_variant_process_noise_matrix` in the configuration file.
+        - Modify association thresholds (`mahalanobis_threshold`, `iou_overlap_threshold`) to observe their effects on object fusion.
+    3. **Evaluation**:
+        - Visualize the fused object's behavior in RViz.
+        - Analyze the effects of parameter changes on object stability, drift, and association.
+    
+    ---
+    
+    ### **4. Functions**
+    
+    1. **`StateFuser::runSingleSensor`**:
+        - **Purpose**: Implements the Kalman Filter measurement update step for each global object.
+        - **Inputs**:
+            - `data_->object_list_fused.objects`: List of global objects.
+            - `data_->object_list_measured.objects`: List of sensor measurements.
+            - `data_->associated_measured`: Indices of associated measurements for each global object.
+        - **Outputs**: Updated global object states (`x_hat_G`) and covariances (`P`).
+        - **Process**:
+            - Construct the measurement matrix (`C`).
+            - For each global object:
+                - Skip if no associated measurement exists.
+                - Compute the innovation vector (`z - C * x_hat_G`).
+                - Update the state estimate (`x_hat_G`) and covariance (`P`) using the Kalman gain (`K`).
+    2. **Utility Functions**:
+        - `IkaUtilities::getEigenStateVec`: Extracts the state vector as an Eigen vector.
+        - `IkaUtilities::getEigenVarianceVec`: Extracts the variance vector as an Eigen vector.
+    
+    ---
+    
+    ### **5. Terms**
+    
+    - **State Vector**: Represents the state of an object (e.g., position, velocity).
+    - **Covariance Matrix**: Describes the uncertainty in the state estimate.
+    - **Innovation Vector**: The difference between the predicted and measured states.
+    - **Kalman Gain**: Weighs the importance of the prediction vs. the measurement.
+    - **Association Thresholds**: Criteria for associating sensor detections with global tracks.
+    
+    ---
+    
+    ### **6. Formulas**
+    
+    1. **Kalman Filter Measurement Update**:
+        - Innovation:
+        \[
+        \mathbf{v} = \mathbf{z} - \mathbf{C} \hat{\mathbf{x}}_G
+        \]
+        - Innovation Covariance:
+        \[
+        \mathbf{S} = \mathbf{C} \mathbf{P}_G \mathbf{C}^\top + \mathbf{R}
+        \]
+        - Kalman Gain:
+        \[
+        \mathbf{K} = \mathbf{P}_G \mathbf{C}^\top \mathbf{S}^{-1}
+        \]
+        - State Update:
+        \[
+        \hat{\mathbf{x}}_G = \hat{\mathbf{x}}_G + \mathbf{K} \mathbf{v}
+        \]
+        - Covariance Update:
+        \[
+        \mathbf{P}_G = (\mathbf{I} - \mathbf{K} \mathbf{C}) \mathbf{P}_G
+        \]
+    
+    ---
+    
+    ### **7. Input and Output**
+    
+    | Function | Input | Output |
+    | --- | --- | --- |
+    | `StateFuser::runSingleSensor` | Global object list, sensor measurement list, association indices | Updated global object states and covariances |
+    
+    ---
+    
+    ### **8. Process Flow**
+    
+    1. **Initialization**:
+        - Load sensor data and global tracks.
+        - Configure fusion parameters (e.g., `Q`, association thresholds).
+    2. **Prediction**:
+        - Predict the state of each global object using the motion model.
+    3. **Association**:
+        - Associate sensor detections with global tracks using Mahalanobis distance or IoU.
+    4. **Fusion**:
+        - For each associated pair:
+            - Compute the innovation vector.
+            - Update the global object's state and covariance using the Kalman Filter equations.
+    5. **Visualization**:
+        - Display the fused object's trajectory and behavior in RViz.
+    
+    ---
+    
+    ### **9. Data Sizes**
+    
+    - **Global Object List**: Typically tens to hundreds of objects depending on the scenario.
+    - **Sensor Measurements**: Hundreds of detections per frame.
+    - **State Vectors**: Fixed size (e.g., 6-dimensional for position, velocity, and orientation).
+    
+    ---
+    
+    ### **10. Network Architectures and Models**
+    
+    - **None**: This task does not involve deep learning models or neural networks. It focuses on classical sensor fusion techniques.
+    
+    ---
+    
+    ### **11. Hyperparameters and Parameters**
+    
+    1. **Process Noise Matrix (`Q`)**:
+        - Diagonal entries in `time_variant_process_noise_matrix`:
+            - Small values (e.g., 0.001): High confidence in motion model.
+            - Large values (e.g., 100): Low confidence in motion model.
+    2. **Association Thresholds**:
+        - **Mahalanobis Distance**:
+            - `mahalanobis_threshold`: Standard deviations (e.g., 2.0, 3.0, 4.0, 5.0).
+        - **Intersection over Union (IoU)**:
+            - `iou_overlap_threshold`: Minimum overlap (e.g., 0.1, 0.2, 0.5).
+    
+    ---
+    
+    ### **12. Evaluation**
+    
+    - **Metrics**:
+        - Stability of the fused object's trajectory.
+        - Drift in object states before and after fusion.
+        - Number of false associations and missed detections.
+    - **Visualization**:
+        - Plot sensor detections, global tracks, and fused objects in RViz.
+        - Observe the effects of parameter changes on object behavior.
+    
+    ---
+    
+    ![image.png](attachment:034ab02f-9b53-44a5-a85c-96f0e80bff58:image.png)
+    
+    ### **13. Important Observations**
+    
+    1. **Effect of Process Noise (`Q`)**:uncertainity in motion model
+        - **Small `Q`**:
+            - Assumes high confidence in the motion model.
+            - Favors predictions over measurements.
+            - Results in "drifting" objects in curves due to poor modeling of non-linear motion.
+        - **Large `Q`**:
+            - Assumes low confidence in the motion model.
+            - Favors measurements over predictions.
+            - Results in noisy, unstable object trajectories.
+    2. **Effect of Association Thresholds**:
+        - **High Thresholds (e.g., Mahalanobis: 5.0, IoU: 0.5)**:
+            - Fewer false associations.
+            - Risk of missing valid associations.
+        - **Low Thresholds (e.g., Mahalanobis: 2.0, IoU: 0.1)**:
+            - More false associations.
+            - Increased computational load due to multiple global objects.
+    3. **Comparison of Association Methods**:
+        - **Mahalanobis Distance**:
+            - Robust for scenarios with well-separated objects.
+            - Does not require overlapping bounding boxes.
+        - **IoU**:
+            - Suitable for crowded scenarios where objects may overlap.
+            - Less robust for distant objects.
+    
+    ---
+    
+    ### **14. Wrap-up**
+    
+    - You have implemented the Kalman Filter measurement update step for object fusion.
+    - Learned about the effects of process noise and association thresholds on fused object behavior.
+    - Gained hands-on experience with parameter tuning and evaluation of multi-sensor fusion pipelines.
+    - Deepened your understanding of ROS and RViz for visualizing fusion results.
+</aside>

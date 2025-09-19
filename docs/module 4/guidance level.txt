@@ -1,0 +1,387 @@
+<aside>
+💡
+
+- notes1
+    
+    
+    Assignment: Trajectory-Planning using a direct multiple shooting approach
+    ▪Implement the system dynamics model
+    ▪Integrate different cost terms regarding:
+    ▪
+    ▪Lateral and longitudinal jerk
+    ▪Steering rate
+    ▪Velocity deviation
+    ▪Dynamic objects
+    Video: ika
+    Using a Closed-Loop-Simulation
+    within the ROS-Framework
+    
+    ![image.png](attachment:ee4f72c9-83de-4b04-92ef-78fb28f6d4b6:image.png)
+    
+    ![image.png](attachment:11684edf-8f4c-41b7-83a1-63d6b5c5f88f:image.png)
+    
+    **Structured Notes on Direct Multiple Shooting for Trajectory Planning**
+    
+    ### **1. Introduction to Trajectory Planning Using Direct Multiple Shooting**
+    
+    - Builds upon the fundamentals of **direct multiple shooting**.
+    - Used for solving **optimal control problems** in vehicle trajectory planning.
+    - Requires implementing **system dynamics, cost terms, and constraints** in C++ within a **ROS node**.
+    - Evaluated using a **closed-loop simulation**.
+    
+    ### **2. Optimal Control Problem Formulation**
+    
+    ### **State Vector Components:**
+    
+    - **Vehicle Position**  – Defines the vehicle's location in the environment.
+        
+        (x,y)(x, y)
+        
+    - **Traveled Distance**  – Measures the total distance covered.
+        
+        ss
+        
+    - **Longitudinal Velocity**  – Speed in the forward direction.
+        
+        vxv_x
+        
+    - **Longitudinal Acceleration**  – Rate of change of velocity.
+        
+        axa_x
+        
+    - **Heading Angle**  – Orientation of the vehicle.
+        
+        θ\theta
+        
+    - **Steering Angle**  – Controls direction of movement.
+        
+        δ\delta
+        
+    
+    ### **Control Inputs:**
+    
+    - **Longitudinal Jerk**  – Rate of change of acceleration .
+        
+        jj
+        
+        axa_x
+        
+    - **Steering Rate**  – Rate of change of steering angle .
+        
+        α\alpha
+        
+        δ\delta
+        
+        ![image.png](attachment:2f0fccaa-b3e0-47db-8a2d-ee2ad816bead:image.png)
+        
+    
+    ### **3. System Dynamics Using a Kinematic Single Track Model**
+    
+    - The **kinematic single track model** represents the vehicle’s movement dynamics.
+    - Governing equations describe the evolution of state variables based on control inputs:
+        
+        x˙=vxcos⁡(θ)\dot{x} = v_x \cos(\theta)
+        
+        y˙=vxsin⁡(θ)\dot{y} = v_x \sin(\theta)
+        
+        s˙=vx\dot{s} = v_x
+        
+        v˙x=ax\dot{v}_x = a_x
+        
+        a˙x=j\dot{a}_x = j
+        
+        θ˙=vxLtan⁡(δ)\dot{\theta} = \frac{v_x}{L} \tan(\delta)
+        
+        δ˙=α\dot{\delta} = \alpha
+        
+        - LL is the wheelbase of the vehicle.
+    
+    ### **4. Implementation of Cost Terms**
+    
+    - **Objective:** To optimize vehicle trajectory by minimizing undesired effects.
+    - Cost terms include:
+        1. **Lateral Jerk Penalization:**
+            - Smoothens lateral movement to enhance passenger comfort.
+        2. **Control Variable Penalization:**
+            - Avoids aggressive changes in **jerk (j)** and **steering rate (α)**.
+        3. **Propulsive Cost Term:**
+            - Penalizes deviations from a given **reference velocity** .
+                
+                vrefv_{ref}
+                
+            - Cost function: .
+                
+                Jvel=(vx−vref)2J_{vel} = (v_x - v_{ref})^2
+                
+        4. **Collision Avoidance Term:**
+            - Penalizes proximity to **dynamic objects**.
+            - Implemented using a **barrier function** that increases cost when objects are too close.
+    
+    ### **5. System Constraints**
+    
+    - Constraints ensure **physical feasibility** and **safety**.
+    - Examples include:
+        - **Speed limits**:
+            
+            vx≤vmaxv_x \leq v_{max}
+            
+        - **Steering constraints**:
+            
+            δmin≤δ≤δmax\delta_{min} \leq \delta \leq \delta_{max}
+            
+        - **Acceleration constraints**:
+            
+            ax≤amaxa_x \leq a_{max}
+            
+    
+    ### **6. Summary of Implementation Steps**
+    
+    1. **Modify the C++ ROS node** to define system dynamics.
+    2. **Implement cost terms** in the optimization framework.
+    3. **Ensure constraints** are properly applied.
+    4. **Run a closed-loop simulation** to evaluate performance.
+    
+    ### **7. Conclusion**
+    
+    - Direct multiple shooting **optimizes vehicle trajectories** efficiently.
+    - Ensures **smooth motion, safety, and adherence to speed limits**.
+    - Requires **careful tuning of cost terms** to balance comfort and performance.
+    
+- notes2
+    
+    The blue line represents the reference path for the trajectory optimization. This reference is generated from lane markings shown as red lines. You may have noticed that the vehicle does not move. The reason for that is that the output trajectory is missing (it should be represented by a green line) - there is some work to be done first!
+    
+    ![image.png](attachment:aaf68884-0b1e-4916-b79c-a1f525ed25f5:image.png)
+    
+    ![image.png](attachment:6ef9135a-1e9c-4c90-b63e-d583868119eb:image.png)
+    
+    ### **Structured and Detailed Explanation Notes for the Assignment**
+    
+    ---
+    
+    ### **1. Concepts**
+    
+    ### **a. Trajectory Planning**
+    
+    - **Definition**: The process of determining a vehicle's optimal path from its current state to a desired goal, considering constraints such as dynamics, safety, and comfort.
+    - **Approach**: Direct Multiple Shooting (DMS) is used here, which divides the trajectory into smaller segments and optimizes them simultaneously.
+    
+    ### **b. System Dynamics**
+    
+    - Represents the mathematical model of the vehicle's motion.
+    - Uses a **kinematic single-track model**:
+        - Assumes no tire slip or longitudinal/latitudinal forces.
+        - Simplifies calculations while maintaining sufficient accuracy for planning purposes.
+    
+    ### **c. Cost Terms**
+    
+    - Penalize undesirable behaviors such as high jerk, steering rates, velocity deviations, and proximity to obstacles.
+    - Encourage smooth, safe, and efficient trajectories.
+    
+    ### **d. Constraints**
+    
+    - Ensure physical feasibility and safety by imposing limits on speed, acceleration, and steering angles.
+    
+    ### **e. ROS Integration**
+    
+    - Utilizes the Robot Operating System (ROS) for real-time simulation and testing.
+    - The `trajectory_planner` node implements the optimization logic.
+    
+    ---
+    
+    ### **2. Important Processes**
+    
+    ### **a. System Dynamics Implementation**
+    
+    - Derive equations for the state derivatives based on the kinematic single-track model.
+    - Use C++ to define these equations in the `trajectory_planner.cpp` file.
+    
+    ### **b. Cost Function Design**
+    
+    - Define penalty terms for:
+        - Longitudinal and lateral jerk.
+        - Steering rate.
+        - Velocity deviation from a reference value.
+        - Collision avoidance with dynamic objects.
+    - Normalize costs using scaling factors (e.g., `vScale`).
+    
+    ### **c. Constraint Enforcement**
+    
+    - Impose bounds on control inputs (jerk, steering rate) and state variables (speed, acceleration).
+    - Ensure compliance with traffic rules and environmental conditions.
+    
+    ### **d. Simulation and Evaluation**
+    
+    - Run the planner in a closed-loop simulation using ROS.
+    - Play a bag file containing dynamic object data to test collision avoidance.
+    
+    ---
+    
+    ### **3. Functions**
+    
+    ### **a. System Dynamics**
+    
+    ```cpp
+    // System Dynamics
+    derivative(0) = state(3) * cos(state(5)); // dx/dt = v * cos(psi)
+    derivative(1) = state(3) * sin(state(5)); // dy/dt = v * sin(psi)
+    derivative(2) = state(3);                 // ds/dt = v
+    derivative(3) = state(4);                 // dv/dt = a
+    derivative(4) = control(0);               // da/dt = j
+    derivative(5) = (state(3) / wheelBase) * tan(state(6)); // dpsi/dt = v/L * tan(delta)
+    derivative(6) = control(1);               // ddelta/dt = alpha
+    
+    ```
+    
+    ### **b. Cost Terms**
+    
+    1. **Longitudinal Jerk Term**:
+        
+        ```cpp
+        SC jerkLonCost = u[0] / jerkRef;
+        SC jerkLonTerm = CppAD::pow(jerkLonCost * jerkLonWeight, 2);
+        
+        ```
+        
+    2. **Steering Rate Term**:
+        
+        ```cpp
+        SC alphaCost = u[1] / alphaRef;
+        SC alphaTerm = CppAD::pow(alphaCost * alphaWeight, 2);
+        
+        ```
+        
+    3. **Lateral Jerk Term**:
+        
+        ```cpp
+        SC jLat = (1 / wheelBase) * (2 * x[3] * CppAD::tan(x[6]) * x[4] + CppAD::pow(x[3], 2) * (CppAD::pow(CppAD::tan(x[6]), 2) + 1) * u[1]);
+        SC jerkLatCost = jLat / jerkRef;
+        SC jerkLatTerm = CppAD::pow(jerkLatCost * jerkLatWeight, 2);
+        
+        ```
+        
+    4. **Velocity Deviation Term**:
+        
+        ```cpp
+        SC vScale = CppAD::CondExpGt(velocity, SC(10.0 / 3.6), velocity, SC(10.0 / 3.6));
+        SC vCost = (velocity - x[3]) / vScale;
+        SC velTerm = CppAD::pow(vCost * vWeight, 2);
+        
+        ```
+        
+    5. **Collision Avoidance Term**:
+        
+        ```cpp
+        SC dynObjDist = CppAD::sqrt(CppAD::pow(dynObjX - x[0], 2) + CppAD::pow(dynObjY - x[1], 2));
+        SC dynObjCost = CppAD::CondExpLt(dynObjDist, dynObjRef, CppAD::cos(SC(M_PI) * CppAD::pow(dynObjDist, 2) / CppAD::pow(dynObjRef, 2)) + 1, SC(0.0));
+        SC dynObjTerm = CppAD::pow(dynObjCost * dynObjWeight, 2);
+        
+        ```
+        
+    
+    ---
+    
+    ### **4. Terms**
+    
+    - **Direct Multiple Shooting**: Divides the trajectory into segments and solves for all simultaneously.
+    - **Kinematic Single Track Model**: Simplified vehicle dynamics model.
+    - **Jerk**: Rate of change of acceleration.
+    - **Steering Rate**: Rate of change of steering angle.
+    - **Barrier Function**: Penalizes proximity to obstacles by increasing cost exponentially as distance decreases.
+    
+    ---
+    
+    ### **5. Formulas**
+    
+    1. **System Dynamics**:
+        - \( \dot{x} = v_x \cos(\theta) \)
+        - \( \dot{y} = v_x \sin(\theta) \)
+        - \( \dot{s} = v_x \)
+        - \( \dot{v}_x = a_x \)
+        - \( \dot{a}_x = j \)
+        - \( \dot{\theta} = \frac{v_x}{L} \tan(\delta) \)
+        - \( \dot{\delta} = \alpha \)
+    2. **Lateral Jerk**:
+    \[
+    j_{lat} = \frac{1}{L} \left( 2 v_x \tan(\delta) a_x + v_x^2 (\tan^2(\delta) + 1) \alpha \right)
+    \]
+    3. **Velocity Deviation**:
+    \[
+    J_{vel} = \left( \frac{v_{ref} - v_x}{v_{scale}} \right)^2
+    \]
+    4. **Collision Avoidance**:
+    \[
+    J_{obj} =
+    \begin{cases}
+    \cos\left(\frac{\pi d^2}{d_{ref}^2}\right) + 1 & \text{if } d < d_{ref} \\
+    0 & \text{otherwise}
+    \end{cases}
+    \]
+    
+    ---
+    
+    ### **6. Inputs**
+    
+    - **Initial State**: Vehicle position, velocity, acceleration, heading, and steering angle.
+    - **Control Limits**: Maximum jerk, steering rate, and velocity.
+    - **Dynamic Object Data**: Positions of nearby vehicles or pedestrians.
+    
+    ---
+    
+    ### **7. Outputs**
+    
+    - **Optimized Trajectory**: A sequence of states and controls that minimizes the cost function while satisfying constraints.
+    - **Visualization**: RViz displays the reference path (blue), planned trajectory (green), and dynamic objects (red).
+    
+    ---
+    
+    ### **8. Process Flow**
+    
+    1. **Initialize Environment**:
+        - Set up ROS workspace and build the `trajectory_planner` package.
+        - Launch the simulation (`vehicle_guidance.launch`).
+    2. **Define System Dynamics**:
+        - Implement the kinematic single-track model in `trajectory_planner.cpp`.
+    3. **Add Cost Terms**:
+        - Penalize longitudinal/lateral jerk, steering rate, velocity deviation, and collisions.
+    4. **Enforce Constraints**:
+        - Limit speed, acceleration, and steering angle.
+    5. **Run Simulation**:
+        - Observe vehicle behavior in RViz.
+        - Test robustness against dynamic objects by playing a bag file.
+    
+    ---
+    
+    ### **9. Network Architectures and Models**
+    
+    - **Model**: Kinematic single-track model for vehicle dynamics.
+    - **Architecture**: Direct Multiple Shooting framework for trajectory optimization.
+    
+    ---
+    
+    ### **10. Hyperparameters**
+    
+    - **Weights**: Adjust penalties for jerk, steering rate, velocity deviation, and collision avoidance.
+    - **Reference Values**: Target velocity (`v_{ref}`), jerk limit (`jerkRef`), and steering rate limit (`alphaRef`).
+    
+    ---
+    
+    ### **11. Parameters**
+    
+    - **State Variables**: \( x, y, s, v_x, a_x, \theta, \delta \).
+    - **Control Inputs**: \( j, \alpha \).
+    - **Constraints**: Speed, acceleration, and steering angle bounds.
+    
+    ---
+    
+    ### **12. Summary**
+    
+    This assignment demonstrates how to implement a trajectory planner using the Direct Multiple Shooting method. Key takeaways include:
+    
+    - Understanding system dynamics modeling.
+    - Designing cost functions for smooth, safe, and efficient motion.
+    - Enforcing constraints to ensure feasibility.
+    - Integrating the planner into a ROS-based simulation environment.
+    
+- 
+</aside>

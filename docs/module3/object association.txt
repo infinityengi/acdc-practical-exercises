@@ -1,0 +1,267 @@
+<aside>
+💡
+
+sensor_weights_object_existence: # for simple weighted-sum existence fusion
+default: 1.0
+"1": 0.5 # RADAR
+"2": 1.5 # CAMERA
+"3": 1.5 # RADAR
+
+```
+initial_global_variances:  # initial variances used in newly created global objects for state variables that are not yet measured.
+    velocity:
+        default: 100
+        "1": 400     # CAR, see object_definitions.h for type ids
+        "3": 80      # BIKE
+        "4": 9       # PEDESTRIAN
+
+    acceleration:
+        default: 100
+        "1": 25      # CAR
+        "3": 15      # BIKE
+        "4": 100     # PEDESTRIAN
+
+    other_state_variables:
+        default: 400
+
+    heading_angle:
+        default: 1e6
+
+```
+
+- notes1
+    
+    
+    ![image.png](attachment:32dab23c-6507-411c-af9d-9f4b6eb4e505:image.png)
+    
+    # **Object Association in Kalman Filter**
+    
+    ## **1. Introduction**
+    
+    - Object association is a crucial step in Kalman filtering.
+    - It follows the previous step of aligning all objects in the same time frame.
+    - The goal is to determine which sensor-level object corresponds to which global object before performing fusion.
+    - Implemented within the **ROS framework**.
+    
+    ## **2. Object Association Criterion**
+    
+    - To associate objects, we define a **criterion** to measure similarity.
+    - A common approach: **Measure the distance between two objects** and check if it is below a defined **threshold**.
+    - Two key distance measures:
+        1. **Intersection over Union (IoU)**
+        2. **Mahalanobis Distance**
+    
+    ## **3. Intersection over Union (IoU)**
+    
+    - Used in object detection and object association.
+    - **Calculation:**
+        - Objects are represented as rectangular **bounding boxes**.
+        - If objects have the same orientation, computing **IoU** is straightforward:
+            
+            IoU=AreaIntersectionAreaUnionIoU = \frac{Area_{Intersection}}{Area_{Union}}
+            
+        - **Threshold (K) for association**: If IoU > K, objects are considered to be the same.
+    - **Real-World Consideration:**
+        - In practice, objects may have different orientations.
+        - For this course, we assume that all objects are **aligned**.
+    
+    ## **4. Mahalanobis Distance**
+    
+    - Measures how many **error standard deviations** two objects are apart.
+    - **Advantage over Euclidean distance**:
+        - **Accounts for uncertainty** in object position.
+        - Better suited for objects with **large uncertainty**.
+    - **Calculation Steps:**
+        1. Compute the difference between sensor-level and global **state vectors**:
+            
+            Δx~=xsensor−xglobal\tilde{\Delta x} = x_{sensor} - x_{global}
+            
+        2. Map the state vectors to the x-y plane using **matrix H**.
+        3. Normalize distances using **error covariance matrix** SS,GS_{S,G}:
+            
+            dG,S=Δx~TSS,G−1Δx~d_{G,S} = \sqrt{\tilde{\Delta x}^T S_{S,G}^{-1} \tilde{\Delta x}}
+            
+        4. The result is a **scalar** representing the distance in terms of standard deviations.
+        5. **Threshold-based association:** If Mahalanobis distance is below a certain threshold, the objects are considered matched.
+    
+    ## **5. Conclusion**
+    
+    - Object association is essential before sensor fusion.
+    - Two main criteria:
+        - **IoU**: Simple and effective for aligned bounding boxes.
+        - **Mahalanobis Distance**: More robust for uncertain measurements.
+    - Next step: Implement these methods in **Kalman filtering** within ROS.
+- notes2
+    
+    
+    ![image.png](attachment:f22c6420-7c14-4cce-86e0-517ca4253fc1:image.png)
+    
+    ### Structured Explanation Notes for the Assignment
+    
+    ---
+    
+    ### **1. Overview**
+    
+    This assignment focuses on implementing object association in a multi-sensor fusion pipeline for autonomous driving. Specifically, you will implement two distance measures—Intersection over Union (IoU) and Mahalanobis Distance—to associate detected objects from different sensors with global tracks.
+    
+    The goal is to correctly assign sensor detections to global objects based on their spatial relationships, enabling subsequent fusion of object states.
+    
+    ---
+    
+    ### **2. Key Concepts**
+    
+    - **Object Association**: The process of associating sensor detections with existing global tracks.
+    - **Intersection over Union (IoU)**: A metric used to measure the overlap between two bounding boxes. It is widely used in object detection tasks.
+    - **Mahalanobis Distance**: A statistical distance measure that accounts for correlations between variables and scales the differences appropriately.
+    - **Fusion Config**: A configuration file where parameters such as the choice of distance measure and thresholds are defined.
+    - **State Vectors**: Representations of object states (e.g., position, velocity) used in tracking algorithms.
+    
+    ---
+    
+    ### **3. Important Processes**
+    
+    1. **IoU Calculation**:
+        - Computes the overlap between two axis-aligned bounding boxes.
+        - Handles edge cases like no overlap or degenerate bounding boxes (lines).
+    2. **Mahalanobis Distance Calculation**:
+        - Reduces the state covariance matrices to the relevant dimensions using a dimensionality reduction matrix (`dim_red_mat`).
+        - Computes the innovation vector and its covariance.
+        - Calculates the Mahalanobis distance using the formula:
+        \[
+        d_{G,S} = \sqrt{\mathbf{v}^\top \Sigma^{-1} \mathbf{v}}
+        \]
+        where \(\mathbf{v}\) is the innovation vector and \(\Sigma\) is the innovation covariance.
+    3. **Association**:
+        - Uses the computed distances to associate sensor detections with global tracks.
+        - The choice of distance measure (IoU or Mahalanobis) is configurable via the fusion config.
+    4. **Fusion**:
+        - After association, the states of associated objects are fused to refine the global track estimates.
+    
+    ---
+    
+    ### **4. Functions**
+    
+    1. **`IouCalculator::computeIoU`**:
+        - **Purpose**: Computes the IoU between two bounding boxes.
+        - **Inputs**:
+            - `a`: First bounding box.
+            - `b`: Second bounding box.
+        - **Outputs**: IoU value as a float.
+        - **Process**:
+            - Compute the intersection bounding box.
+            - Handle edge cases (no overlap, degenerate boxes).
+            - Calculate areas of intersection and union.
+            - Return IoU as the ratio of intersection area to union area.
+    2. **`MahalanobisCalculator::distance`**:
+        - **Purpose**: Computes the Mahalanobis distance between a measured object and a global object.
+        - **Inputs**:
+            - `measured_object`: Sensor detection represented as an `IkaObject`.
+            - `global_object`: Global track represented as a `GlobalObject`.
+            - `dim_red_mat`: Dimensionality reduction matrix.
+        - **Outputs**: Mahalanobis distance as a float.
+        - **Process**:
+            - Extract state vectors (\(x_{\text{hat}}^S\) and \(x_{\text{hat}}^G\)) and covariance matrices (\(P_S\) and \(P_G\)).
+            - Reduce covariances to relevant dimensions using `dim_red_mat`.
+            - Compute the innovation vector and its covariance.
+            - Calculate the Mahalanobis distance.
+    
+    ---
+    
+    ### **5. Terms**
+    
+    - **IoU (Intersection over Union)**: A measure of overlap between two bounding boxes.
+    - **Mahalanobis Distance**: A statistical distance measure that considers correlations and scales differences.
+    - **State Vector**: A vector representing the state of an object (e.g., position, velocity).
+    - **Covariance Matrix**: A matrix describing the uncertainty in an object's state.
+    - **Innovation Vector**: The difference between the predicted and measured states.
+    - **Innovation Covariance**: The covariance of the innovation vector.
+    
+    ---
+    
+    ### **6. Formulas**
+    
+    1. **IoU**:
+    \[
+    \text{IoU} = \frac{\text{Area of Intersection}}{\text{Area of Union}}
+    \]
+    2. **Mahalanobis Distance**:
+    \[
+    d_{G,S} = \sqrt{\mathbf{v}^\top \Sigma^{-1} \mathbf{v}}
+    \]
+    where:
+        - \(\mathbf{v} = H(x_{\text{hat}}^S - x_{\text{hat}}^G)\)
+        - \(\Sigma = H P_S H^\top + H P_G H^\top\)
+    
+    ---
+    
+    ### **7. Input and Output**
+    
+    | Function | Input | Output |
+    | --- | --- | --- |
+    | `IouCalculator::computeIoU` | Two bounding boxes (`a`, `b`) | IoU value as a float |
+    | `MahalanobisCalculator::distance` | Measured object, global object, dimensionality reduction matrix | Mahalanobis distance as a float |
+    
+    ---
+    
+    ### **8. Process Flow**
+    
+    1. **Initialization**:
+        - Load sensor data and global tracks.
+        - Configure the fusion parameters (e.g., distance measure, thresholds).
+    2. **Distance Calculation**:
+        - For each sensor detection, compute the IoU or Mahalanobis distance to all global tracks.
+    3. **Association**:
+        - Assign sensor detections to global tracks based on the computed distances.
+        - Use a threshold to filter out invalid associations.
+    4. **Fusion**:
+        - Fuse the states of associated objects to update global tracks.
+    
+    ---
+    
+    ### **9. Data Sizes**
+    
+    - **Sensor Detections**: Typically hundreds of detections per frame.
+    - **Global Tracks**: Typically tens to hundreds of tracks depending on the scenario.
+    - **State Vectors**: Fixed size (e.g., 6-dimensional for position, velocity, and orientation).
+    
+    ---
+    
+    ### **10. Network Architectures and Models**
+    
+    - **None**: This task does not involve deep learning models or neural networks. It focuses on classical sensor fusion techniques.
+    
+    ---
+    
+    ### **11. Hyperparameters and Parameters**
+    
+    - **Fusion Config**:
+        - Choice of distance measure (IoU or Mahalanobis).
+        - Thresholds for valid associations.
+        - Dimensionality reduction matrix (`dim_red_mat`).
+    - **IoU Parameters**:
+        - None specific to IoU computation.
+    - **Mahalanobis Parameters**:
+        - Covariance matrices for measured and global objects.
+        - Dimensionality reduction matrix.
+    
+    ---
+    
+    ### **12. Evaluation**
+    
+    - **Metrics**:
+        - Correctness of associations (true positives, false positives, false negatives).
+        - Drift in object states before and after fusion.
+    - **Visualization**:
+        - Plot sensor detections and global tracks with associations highlighted.
+        - Analyze IoU and Mahalanobis distance distributions.
+    
+    ---
+    
+    ### **13. Wrap-up**
+    
+    - You have implemented two key distance measures for object association in a multi-sensor fusion pipeline.
+    - Learned about IoU and Mahalanobis distance computations.
+    - Gained hands-on experience with C++ implementation of sensor fusion algorithms.
+    - Prepared the groundwork for subsequent fusion steps to refine object states.
+    
+</aside>

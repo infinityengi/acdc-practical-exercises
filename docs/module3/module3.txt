@@ -1,0 +1,294 @@
+<aside>
+💡
+
+- task1
+    
+    
+    [40_-_ACDC_-_Section_3_-_Object_Prediction.pdf](attachment:9fd35466-a73e-44ef-9444-5c4cd915ea2f:40_-_ACDC_-_Section_3_-_Object_Prediction.pdf)
+    
+    **Structured Notes: Object Prediction in Kalman Filters**
+    
+    ## **1. Introduction to Object Prediction**
+    
+    - Object prediction is the first step in the Kalman filter workflow.
+    - It ensures measurements and object states are comparable at the same timestamp.
+    - Uses mathematical models to estimate future states based on past data.
+    
+    ## **2. Mathematical Notation**
+    
+    - **Hatted variables (x^\hat{x})**: Estimate of the true value.
+    - **Transpose (TT)**: Superscript  indicates a transposed matrix or vector.
+        
+        TT
+        
+    - **Indices:**
+        - **G (Global):** Values derived from the global environment model.
+        - **S (Sensor):** Values originating from sensor measurements.
+    
+    ## **3. Object Representation in the Kalman Filter**
+    
+    Each object has:
+    
+    - **Object state vector (x^\hat{x})**:
+        
+        x^=[x,y,z,vx,vy,ax,ay,l,w,h]T\hat{x} = [x, y, z, v_x, v_y, a_x, a_y, l, w, h]^T
+        
+        - **x,y,zx, y, z**: Position coordinates (bounding box center)
+        - **vx,vyv_x, v_y**: Velocity components
+        - **ax,aya_x, a_y**: Acceleration components
+        - **l,w,hl, w, h**: Bounding box dimensions (length, width, height)
+    - **Error covariance matrix (PP)**:
+        - Represents uncertainty in the estimated state.
+        - Diagonal elements: Variance of each state variable.
+        - Off-diagonal elements: Correlation between state variables.
+        
+        P=cov(x^err,x)P = cov(\hat{x}_{err}, x)
+        
+        - **Smaller values in PP** → Higher certainty in estimates.
+    
+    ## **4. Reference Coordinate System**
+    
+    - Axes are aligned with the ego vehicle.
+    - Origin is at the **rear axle** of the ego vehicle.
+    - Object dimensions are described separately from this system.
+    - Heading angle is computed outside of the Kalman filter.
+    
+    ## **5. Prediction Step in Kalman Filtering**
+    
+    - **Predicts state from time step k−1k-1 to time step kk.**
+    - Ensures new sensor data aligns with prior estimates.
+    - Essential for object fusion and tracking.
+    
+    ### **5.1 State Prediction Equation**
+    
+    x^G(k)=F⋅x^G(k−1)\hat{x}_G(k) = F \cdot \hat{x}_G(k-1)
+    
+    - FF: Motion model matrix, describing object movement between time steps.
+    - For a **constant velocity model**:
+        
+        F=[10Δt000010Δt000010Δt000010Δt000010000001]F = \begin{bmatrix} 1 & 0 & \Delta t & 0 & 0 & 0 \\
+        0 & 1 & 0 & \Delta t & 0 & 0 \\
+        0 & 0 & 1 & 0 & \Delta t & 0 \\
+        0 & 0 & 0 & 1 & 0 & \Delta t \\
+        0 & 0 & 0 & 0 & 1 & 0 \\
+        0 & 0 & 0 & 0 & 0 & 1
+        \end{bmatrix}
+        
+    - The diagonal ones maintain previous values.
+    - Velocity components adjust position estimates.
+    
+    ### **5.2 Covariance Prediction Equation**
+    
+    PG(k)=FPG(k−1)FT+QP_G(k) = F P_G(k-1) F^T + Q
+    
+    - **Why predict PP?**
+        1. **Uncertainty propagation**: High velocity uncertainty leads to high position uncertainty.
+        2. **Motion model imperfections**: Assumptions (e.g., constant velocity) are not always valid.
+    - **Process noise matrix (QQ)**: Accounts for unexpected variations in motion.
+    
+    ## **6. Summary**
+    
+    - Object prediction ensures consistency in time-aligned state estimation.
+    - The **Kalman filter** estimates position, velocity, and acceleration even when sensors only measure position.
+    - Prediction involves:
+        - **State update**: Using motion model .
+            
+            FF
+            
+        - **Error covariance update**: Propagating uncertainties and incorporating motion noise.
+    - **Next steps**:
+        - Construct a motion model and noise matrix.
+        - Implement the prediction step in a **ROS framework**.
+- task2 ros
+    
+    Thank you for uploading the file. Based on the content provided in the file, here is a structured and detailed explanation of the assignment, covering concepts, processes, functions, terms, formulas, inputs, outputs, process flow, data sizes, network architectures, models, hyperparameters, parameters, etc.
+    
+    ---
+    
+    ### **1. Overview**
+    
+    This workshop focuses on implementing a **Multi-Object Tracking (MOT)** system using a Multi-Instance Kalman Filter (MIKF). The task involves predicting, associating, and fusing object states from sensor data (camera and radar) to improve tracking accuracy. The implementation is based on the ROS (Robot Operating System) framework, with tools like RViz for visualization and the Eigen library for matrix operations.
+    
+    ---
+    
+    ### **2. Key Concepts**
+    
+    ### **2.1 Multi-Object Tracking (MOT)**
+    
+    - **Objective**: Track multiple objects over time by predicting their future states, associating them with new measurements, and fusing information from different sensors.
+    - **Challenges**:
+        - Sensor fusion: Combining noisy or incomplete data from camera and radar.
+        - State prediction: Estimating future positions and velocities of objects.
+        - Object association: Matching predicted states with new measurements.
+    
+    ### **2.2 Kalman Filter**
+    
+    - A recursive algorithm for estimating the state of a dynamic system.
+    - **Key Steps**:
+        1. **Prediction**: Estimate the next state based on the current state and motion model.
+        2. **Update**: Refine the estimate using new measurements.
+    
+    ### **2.3 Sensor Characteristics**
+    
+    - **Camera**:
+        - High accuracy in lateral direction.
+        - High uncertainty in longitudinal direction.
+    - **Radar**:
+        - Opposite characteristics: high accuracy in longitudinal direction, low in lateral.
+    
+    ---
+    
+    ### **3. Process Flow**
+    
+    ### **3.1 Input Data**
+    
+    - **Topics**:
+        - `/sensors/camera_front/ikaObjectList`: Camera detections.
+        - `/sensors/radar_front/ikaObjectList`: Radar detections.
+        - `/sensors/vehicleCAN/ikaEgoMotion`: Ego vehicle motion data.
+        - `/ikaGPS`: GPS data for ego vehicle position.
+    - **Data Size**: ~77.4 MB (bag file).
+    - **Messages**: 125,992 messages over 9 minutes and 59 seconds.
+    
+    ### **3.2 Workflow**
+    
+    1. **Visualize Detections**:
+        - Use RViz to visualize object detections from the bag file.
+    2. **Implement Prediction**:
+        - Modify the `StatePredictor.cpp` file to implement the prediction step of the Kalman filter.
+    3. **Object Association**:
+        - Match predicted object states with new measurements.
+    4. **Object Fusion**:
+        - Combine information from camera and radar to refine object states.
+    
+    ### **3.3 Output**
+    
+    - Fused object states displayed in RViz.
+    - Predicted objects moving away from detected objects if no update step is implemented.
+    
+    ---
+    
+    ### **4. Functions and Terms**
+    
+    ### **4.1 Functions**
+    
+    - **`IkaUtilities::getEigenStateVec`**:
+        - Converts an `IkaObject` into an Eigen vector for matrix operations.
+    - **`globalObject.P()`**:
+        - Accesses the error covariance matrix of an object.
+    
+    ### **4.2 Terms**
+    
+    - **`F_const`**: Constant part of the motion model matrix.
+    - **`F_timevar`**: Time-varying part of the motion model matrix.
+    - **`Q_timevar`**: Noise covariance matrix for motion uncertainty.
+    - **`Δt`**: Time gap between predictions.
+    
+    ---
+    
+    ### **5. Formulas**
+    
+    ### **5.1 Motion Model Matrix (F)**
+    
+    \[
+    \mathbf{F} = \mathbf{F}*{const} + \Delta t\ \mathbf{F}*{timevar}
+    \]
+    
+    ### **5.2 Motion Noise Matrix (Q)**
+    
+    \[
+    \mathbf{Q} = \Delta t \cdot \mathbf{Q}_{timevar}
+    \]
+    
+    ### **5.3 Kalman Filter Prediction Step**
+    
+    1. **State Prediction**:
+    \[
+    \hat{x}_G^{new} = \mathbf{F} \cdot \hat{x}_G^{old}
+    \]
+    2. **Covariance Prediction**:
+    \[
+    P^{new} = \mathbf{F} \cdot P^{old} \cdot \mathbf{F}^T + \mathbf{Q}
+    \]
+    
+    ---
+    
+    ### **6. Implementation Details**
+    
+    ### **6.1 Updating IkaObjects "In Place"**
+    
+    - Modify the global object list `data_->object_list_fused.objects` directly instead of returning new values.
+    - Use utility functions like `IkaUtilities::getEigenStateVec` to access and modify object states as Eigen vectors.
+    
+    ### **6.2 Prediction Code**
+    
+    - Loop through each object in `data_->object_list_fused.objects`.
+    - Compute the motion model matrix \( \mathbf{F} \) and noise matrix \( \mathbf{Q} \).
+    - Update the state vector \( \hat{x}_G \) and error covariance \( P \) for each object.
+    - Update timestamps:
+        - Global object list: `data_->object_list_fused.header.stamp`.
+        - Individual objects: `globalObject.header.stamp`.
+    
+    ---
+    
+    ### **7. Tools and Libraries**
+    
+    ### **7.1 ROS**
+    
+    - **Nodes**:
+        - `fusion.launch`: Starts the fusion node.
+        - `bag_playback.launch`: Plays the bag file.
+    - **Commands**:
+        - `rosbag info`: Inspect bag file details.
+        - `roslaunch`: Launch nodes.
+        - `rosbag play`: Play bag files.
+    
+    ### **7.2 Eigen Library**
+    
+    - Used for matrix and vector operations.
+    - Example commands:
+        - Create a zero matrix: `Eigen::MatrixXf::Zero(3,3)`.
+        - Transpose a matrix: `B.transpose()`.
+        - Invert a matrix: `C.inverse()`.
+    
+    ### **7.3 RViz**
+    
+    - Visualize object detections and fused tracks.
+    - Use introspection mode (`S` key) to analyze object properties.
+    
+    ---
+    
+    ### **8. Network Architectures and Models**
+    
+    ### **8.1 Kalman Filter**
+    
+    - **Model**:
+        - Linear motion model for constant velocity.
+        - Gaussian noise assumption for measurement and process uncertainties.
+    - **Parameters**:
+        - Motion model matrices: \( \mathbf{F}*{const}, \mathbf{F}*{timevar} \).
+        - Noise covariance matrices: \( \mathbf{Q}_{timevar} \).
+    
+    ### **8.2 Hyperparameters**
+    
+    - \( \Delta t \): Time gap for prediction.
+    - Tunable entries in `kalman_filter.yaml` for \( \mathbf{F}*{const}, \mathbf{F}*{timevar}, \mathbf{Q}_{timevar} \).
+    
+    ---
+    
+    ### **9. Learning Goals**
+    
+    - Implement the steps of MOT: prediction, association, and fusion.
+    - Inspect and visualize rosbag data.
+    - Utilize the Eigen library for matrix computations.
+    - Leverage advanced RViz features for debugging and analysis.
+    
+    ---
+    
+    ### **10. Summary**
+    
+    This workshop provides hands-on experience in implementing a Multi-Object Tracking system using ROS and the Kalman filter. By completing the tasks, participants will gain proficiency in sensor fusion, state estimation, and visualization tools. The modular structure of the code and the availability of utility functions simplify the implementation process, focusing on core concepts and algorithms.
+    
+    If you need further clarification or additional details, feel free to ask!
+    
+</aside>

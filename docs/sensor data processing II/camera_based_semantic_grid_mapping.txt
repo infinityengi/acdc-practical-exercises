@@ -1,0 +1,226 @@
+<aside>
+💡
+
+- notes example
+    
+    
+    [ipm.pdf](attachment:5edd39bb-0be9-433b-a2fa-5ef4df46db62:ipm.pdf)
+    
+    ### Structured Notes on Important Concepts
+    
+    ### **1. Overview of the Workshop**
+    
+    - **Objective**: Perform Camera-based Semantic Grid Mapping using geometry-based inverse perspective mapping (IPM).
+    - **Dataset**: A rosbag file (`semantic_8_cams.db3`) containing data from 8 cameras mounted on a vehicle.
+    - **Tools Used**:
+        - ROS2 for message handling and node communication.
+        - `tf2` for coordinate transformations.
+        - `message_filters` for synchronizing subscribers.
+    
+    ---
+    
+    ### **2. Key ROS2 Messages**
+    
+    - **`sensor_msgs/msg/Image`**:
+        - Standard ROS2 format for camera images.
+        - Contains image data along with metadata such as encoding, width, height, and timestamp.
+    - **`sensor_msgs/msg/CameraInfo`**:
+        - Provides intrinsic and extrinsic parameters of the camera.
+        - Includes fields like `K` (intrinsic matrix), `D` (distortion coefficients), and frame information.
+    
+    ---
+    
+    ### **3. Task Solutions**
+    
+    ### **Task 1 & 2: Explore and Build the Package**
+    
+    - **Action**:
+        - Navigate to the package directory (`colcon_workspace_src/section_2/camera_based_semantic_grid_mapping_r2`).
+        - Build the package using:
+            
+            ```bash
+            colcon build --packages-select camera_based_semantic_grid_mapping_r2 --symlink-install
+            
+            ```
+            
+        - Source the workspace:
+            
+            ```bash
+            source install/setup.bash
+            
+            ```
+            
+    
+    ### **Task 3: Synchronize Subscribers**
+    
+    - **Problem**: Ensure that images from multiple cameras are synchronized in time.
+    - **Solution**:
+        - Use `message_filters.ApproximateTimeSynchronizer` to synchronize topics based on their timestamps.
+        - Replace placeholders with actual topic names:
+            
+            ```python
+            image_sub = message_filters.Subscriber(self, Image, image_topic, qos_profile=qos_profile)
+            info_sub = message_filters.Subscriber(self, CameraInfo, info_topic, qos_profile=qos_profile)
+            
+            ```
+            
+        - Add subscribers to an array and create a synchronized subscriber:
+            
+            ```python
+            self.sync_sub = message_filters.ApproximateTimeSynchronizer(subs, queue_size=5, slop=0.01)
+            
+            ```
+            
+    
+    ### **Task 4: Extract the Camera Intrinsic Matrix**
+    
+    - **Problem**: Obtain the intrinsic matrix `K` from the `CameraInfo` message.
+    - **Solution**:
+        - Access the intrinsic matrix `k` from the `cam_info_msg`:
+            
+            ```python
+            K = np.reshape(cam_info_msg.k, (3, 3))
+            
+            ```
+            
+        - Replace the placeholder:
+            
+            ```python
+            # PLACE_HOLDER_INTRINSIC = [100., 0., 0., 0., 100., 0., 0., 0., 100.]  # Comment this line
+            
+            ```
+            
+    
+    ### **Task 5: Calculate the Camera Extrinsic Matrix**
+    
+    ### **Task 3: Synchronize Subscribers**
+    
+    - **Problem**: Ensure that images from multiple cameras are synchronized in time.
+    - **Solution**:
+        - Use `message_filters.ApproximateTimeSynchronizer` to synchronize topics based on their timestamps.
+        - Replace placeholders with actual topic names:
+            
+            ```python
+            image_sub = message_filters.Subscriber(self, Image, image_topic, qos_profile=qos_profile)
+            info_sub = message_filters.Subscriber(self, CameraInfo, info_topic, qos_profile=qos_profile)
+            
+            ```
+            
+        - Add subscribers to an array and create a synchronized subscriber:
+            
+            ```python
+            self.sync_sub = message_filters.ApproximateTimeSynchronizer(subs, queue_size=5, slop=0.01)
+            
+            ```
+            
+    - **Part 1: Look Up Transformation**
+        - Use `self.tfBuffer.lookup_transform` to find the transformation between the vehicle's base link and the camera frame:
+            
+            ```python
+            transform = self.tfBuffer.lookup_transform(cam_info_msg.header.frame_id, self.vehicle_base_link, common_time)
+            
+            ```
+            
+    - **Part 2: Convert Transform to Homogeneous Matrix**
+        - Extract the quaternion and convert it to Euler angles:
+            
+            ```python
+            quaternion = transform.transform.rotation
+            quaternion = [quaternion.x, quaternion.y, quaternion.z, quaternion.w]
+            roll, pitch, yaw = tf_transformations.euler_from_quaternion(quaternion)
+            
+            ```
+            
+        - Compute the rotation matrices:
+            
+            ```python
+            Rz = np.array([[np.cos(yaw), -np.sin(yaw), 0.0],
+                           [np.sin(yaw), np.cos(yaw), 0.0],
+                           [0.0, 0.0, 1.0]])
+            Ry = np.array([[np.cos(pitch), 0.0, np.sin(pitch)],
+                           [0.0, 1.0, 0.0],
+                           [-np.sin(pitch), 0.0, np.cos(pitch)]])
+            Rx = np.array([[1.0, 0.0, 0.0],
+                           [0.0, np.cos(roll), -np.sin(roll)],
+                           [0.0, np.sin(roll), np.cos(roll)]])
+            R = Rz.dot(Ry.dot(Rx))
+            
+            ```
+            
+        - Extract the translation vector:
+            
+            ```python
+            t = transform.transform.translation
+            t = [t.x, t.y, t.z]
+            t = np.array(t)
+            
+            ```
+            
+        - Combine rotation and translation into a homogeneous matrix:
+            
+            ```python
+            E = np.column_stack([R, t])
+            E = np.row_stack([E, np.array([0., 0., 0., 1.])])
+            
+            ```
+            
+        - Replace the placeholder:
+            
+            ```python
+            # PLACE_HOLDER_EXTRINSIC = np.array([[1., 0., 0., 1.], [0., 1., 0., 1.], [0., 0., 1., 1.], [0., 0., 0., 1.]])  # Comment this line
+            
+            ```
+            
+    
+    ---
+    
+    ### **4. Important Functions and Terms**
+    
+    - **`message_filters.ApproximateTimeSynchronizer`**:
+        - Synchronizes messages from multiple topics based on their timestamps.
+        - Parameters:
+            - `subs`: List of subscribers.
+            - `queue_size`: Maximum number of messages to hold.
+            - `slop`: Maximum allowable time difference between synchronized messages.
+    - **`tf2` Library**:
+        - Maintains relationships between coordinate frames over time.
+        - Functions:
+            - `lookup_transform(target_frame, source_frame, time)`: Retrieves the transformation between two frames.
+    - **`tf_transformations`**:
+        - Provides utilities for converting quaternions to Euler angles and vice versa.
+        - Function:
+            - `euler_from_quaternion(quaternion)`: Converts a quaternion to Euler angles.
+    - **Homogeneous Transformation Matrix**:
+        - Combines rotation and translation into a single (4x4) matrix:
+        \[
+        E =
+        \begin{bmatrix}
+        R & t \\
+        0 & 1
+        \end{bmatrix}
+        \]
+    - **Inverse Perspective Mapping (IPM)**:
+        - Technique to generate a bird's-eye view (BEV) image from multiple camera images.
+    
+    ---
+    
+    ### **5. Additional Tasks**
+    
+    - **Optional Task**: Create an RVIZ configuration to visualize all 8 camera images and the BEV image.
+    - **Performance Consideration**: Adjust the rosbag playback rate (`-rate`) based on your computer's processing power.
+    
+    ---
+    
+    ### **6. Wrap-Up**
+    
+    - **Key Learnings**:
+        - Synchronized subscribers ensure temporal alignment of multi-camera data.
+        - Camera calibration parameters (intrinsic and extrinsic) are crucial for accurate mapping.
+        - Coordinate transformations using `tf2` enable seamless integration of data from different frames.
+    - **Next Steps**:
+        - Experiment with different configurations and datasets.
+        - Explore advanced features of the semantic grid mapping package.
+    
+- dfg
+- 
+</aside>

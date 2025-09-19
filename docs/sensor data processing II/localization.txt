@@ -1,0 +1,452 @@
+<aside>
+💡
+
+- ros
+    
+    
+    ### Structured Explanation Notes for the Assignment
+    
+    ### **1. Overview**
+    
+    This assignment focuses on setting up a localization stack for automated driving in an urban environment using ROS 2. The primary goal is to combine low-frequency GNSS measurements with high-frequency LiDAR odometry to estimate the vehicle's pose (position and orientation) accurately and frequently.
+    
+    ---
+    
+    ### **2. Key Concepts**
+    
+    - **Localization**: Determining the precise position and orientation of a vehicle in its environment.
+    - **GNSS (Global Navigation Satellite System)**: Provides global position estimates in the WGS84 coordinate system.
+    - **LiDAR Odometry**: Estimates relative motion between consecutive LiDAR scans using ICP (Iterative Closest Point) algorithms.
+    - **UTM (Universal Transverse Mercator)**: A Cartesian coordinate system derived from WGS84, dividing the Earth into zones for easier computation.
+    - **TF2 (Transform Library)**: Handles transformations between coordinate frames in ROS 2.
+    - **Pose Estimation**: Combining GNSS and odometry data to predict the vehicle's current pose.
+    
+    ---
+    
+    ### **3. Important Processes**
+    
+    1. **Data Collection**:
+        - A rosbag file (`localization.db3`) is provided, containing sensor data recorded in simulation.
+        - Data includes:
+            - Camera images (`/camera/image`): 20 Hz.
+            - GNSS fixes (`/gnss/navsatfix`): 1 Hz.
+            - Ground truth poses (`/ground_truth/pose`): 20 Hz.
+            - LiDAR point clouds (`/lidar/pointcloud`): 10 Hz.
+    2. **Processing Steps**:
+        - Convert GNSS data from WGS84 to UTM.
+        - Transform UTM coordinates into a local map frame (`carla_map`).
+        - Estimate vehicle yaw from sequential GNSS points.
+        - Combine LiDAR odometry and GNSS data to predict the vehicle's pose.
+    
+    ---
+    
+    ### **4. Functions**
+    
+    1. **`projectToUTM`**:
+        - **Purpose**: Converts WGS84 coordinates to UTM.
+        - **Inputs**: Latitude, Longitude.
+        - **Outputs**: UTM easting, northing, and zone information.
+        - **Implementation**: Uses `GeographicLib::UTMUPS::Forward`.
+        - **Formula**:
+            
+            ```cpp
+            GeographicLib::UTMUPS::Forward(lat, lon, zone, northp, x, y);
+            
+            ```
+            
+        - **Example**:
+            - Input: Latitude = 50.787467, Longitude = 6.046498.
+            - Output: UTM x = 291827.02, UTM y = 5630349.72.
+    2. **`transformPoint`**:
+        - **Purpose**: Transforms a point from one frame to another using TF2.
+        - **Inputs**: Input point, target frame.
+        - **Outputs**: Transformed point.
+        - **Implementation**:
+            - Retrieve transformation using `tf_buffer_->lookupTransform`.
+            - Apply transformation using `tf2::doTransform`.
+    3. **`estimateGNSSYawAngle`**:
+        - **Purpose**: Estimates the vehicle's yaw angle from two sequential GNSS points.
+        - **Inputs**: Two `geometry_msgs::msg::PointStamped` objects.
+        - **Outputs**: A `geometry_msgs::msg::PoseStamped` object with yaw as a quaternion.
+        - **Formula**:
+            
+            ```cpp
+            double dx = current_point.point.x - last_point.point.x;
+            double dy = current_point.point.y - last_point.point.y;
+            double yaw = std::atan2(dy, dx);
+            
+            ```
+            
+        - **Quaternion Conversion**:
+            
+            ```cpp
+            tf2::Quaternion q;
+            q.setRPY(0, 0, yaw);
+            output_pose.pose.orientation = tf2::toMsg(q);
+            
+            ```
+            
+    4. **`getIncrementalMovement`**:
+        - **Purpose**: Derives incremental translation and rotation between two odometry measurements.
+        - **Inputs**: Current and previous odometry messages.
+        - **Outputs**: Incremental translation (`Vector3`) and rotation (`Quaternion`).
+    5. **`posePrediction`**:
+        - **Purpose**: Predicts the vehicle's pose by applying incremental movements.
+        - **Inputs**: Initial pose, incremental translation, and rotation.
+        - **Outputs**: Updated pose.
+        - **Process**:
+            - Transform incremental translations into the map frame using trigonometric equations.
+            - Update position:
+                
+                ```cpp
+                double alpha = std::atan2(delta_translation.y, delta_translation.x);
+                double beta = yaw - alpha;
+                double dx_map = std::cos(beta) * std::sqrt(std::pow(delta_translation.x, 2) + std::pow(delta_translation.y, 2));
+                double dy_map = std::sin(beta) * std::sqrt(std::pow(delta_translation.x, 2) + std::pow(delta_translation.y, 2));
+                pose.pose.position.x += dx_map;
+                pose.pose.position.y += dy_map;
+                
+                ```
+                
+            - Update orientation:
+                
+                ```cpp
+                tf2::Quaternion orientation;
+                tf2::fromMsg(pose.pose.orientation, orientation);
+                orientation *= delta_rotation;
+                pose.pose.orientation = tf2::toMsg(orientation);
+                
+                ```
+                
+    
+    ---
+    
+    ### **5. Terms**
+    
+    - **WGS84**: World Geodetic System 1984, a global reference system for geospatial data.
+    - **UTM**: Universal Transverse Mercator, a Cartesian coordinate system for mapping.
+    - **TF2**: A ROS 2 library for managing transformations between coordinate frames.
+    - **ICP (Iterative Closest Point)**: An algorithm for aligning point clouds.
+    - **KISS-ICP**: A lightweight implementation of ICP for LiDAR odometry.
+    
+    ---
+    
+    ### **6. Formulas**
+    
+    1. **Yaw Calculation**:
+        
+        ```cpp
+        double yaw = std::atan2(dy, dx);
+        
+        ```
+        
+    2. **Map Frame Translation**:
+        
+        ```cpp
+        double alpha = std::atan2(delta_translation.y, delta_translation.x);
+        double beta = yaw - alpha;
+        double dx_map = std::cos(beta) * std::sqrt(std::pow(delta_translation.x, 2) + std::pow(delta_translation.y, 2));
+        double dy_map = std::sin(beta) * std::sqrt(std::pow(delta_translation.x, 2) + std::pow(delta_translation.y, 2));
+        
+        ```
+        
+    
+    ---
+    
+    ### **7. Input and Output**
+    
+    | Function | Input | Output |
+    | --- | --- | --- |
+    | `projectToUTM` | Latitude, Longitude | UTM easting, northing, and zone |
+    | `transformPoint` | Input point, target frame | Transformed point |
+    | `estimateGNSSYawAngle` | Two `geometry_msgs::msg::PointStamped` | `geometry_msgs::msg::PoseStamped` with yaw |
+    | `getIncrementalMovement` | Current and previous odometry messages | Incremental translation (`Vector3`), rotation (`Quaternion`) |
+    | `posePrediction` | Initial pose, incremental translation, rotation | Updated pose |
+    
+    ---
+    
+    ### **8. Process Flow**
+    
+    1. **GNSS Processing**:
+        - Convert WGS84 → UTM → Local Map Frame.
+        - Estimate yaw from sequential points.
+    2. **LiDAR Odometry**:
+        - Use KISS-ICP to compute relative motion between scans.
+    3. **Pose Prediction**:
+        - Combine GNSS and odometry data.
+        - Predict current pose using incremental movements.
+    
+    ---
+    
+    ### **9. Data Sizes**
+    
+    - **Rosbag File**: 1.2 GB.
+    - **Duration**: 117 seconds.
+    - **Message Counts**:
+        - `/camera/image`: 2375 messages.
+        - `/gnss/navsatfix`: 114 messages.
+        - `/ground_truth/pose`: 2375 messages.
+        - `/lidar/pointcloud`: 1187 messages.
+    
+    ---
+    
+    ### **10. Network Architectures and Models**
+    
+    - **KISS-ICP**: Lightweight ICP-based LiDAR odometry pipeline.
+    - **TF2**: Handles transformations between coordinate frames.
+    
+    ---
+    
+    ### **11. Hyperparameters and Parameters**
+    
+    - **KISS-ICP Parameters**:
+        - `max_range`: Maximum range for point cloud processing (e.g., 100.0 m).
+        - `min_range`: Minimum range for point cloud processing (e.g., 5.0 m).
+        - `deskew`: Enable/disable deskewing (e.g., `False`).
+        - `initial_threshold`: Threshold for initial alignment (e.g., 2.0).
+        - `min_motion_th`: Minimum motion threshold for updating (e.g., 0.01).
+    
+    ---
+    
+    ### **12. Evaluation**
+    
+    - **Visualization**:
+        - Use RViz to visualize ground truth, GNSS estimates, and predicted poses.
+        - Compare red (ground truth), purple (GNSS), and green (predicted) arrows.
+    - **Recording**:
+        - Record a new bag file for evaluation: `/ground_truth/pose`, `/localization/predicted_pose`.
+    
+    ---
+    
+    ### **13. Wrap-up**
+    
+    - You have implemented a localization stack combining GNSS and LiDAR odometry.
+    - Learned about projections, transformations, and pose estimation techniques.
+    - Gained hands-on experience with ROS 2 and autonomous driving tools.
+    
+- jupyter
+    
+    
+    ### Structured Explanation Notes for the Assignment
+    
+    ---
+    
+    ### **1. Overview**
+    
+    This assignment focuses on evaluating a localization stack implemented in ROS 2 for automated driving. The goal is to analyze the accuracy of pose estimation by combining GNSS and LiDAR odometry data. The evaluation involves importing data from a ROS 2 bag file, converting it into a pandas DataFrame, assigning ground truth poses to estimated poses, and calculating metrics for performance analysis.
+    
+    ---
+    
+    ### **2. Key Concepts**
+    
+    - **Localization**: Estimating the position and orientation (pose) of a vehicle in its environment.
+    - **GNSS (Global Navigation Satellite System)**: Provides global position estimates in the WGS84 coordinate system.
+    - **LiDAR Odometry**: Estimates relative motion between consecutive LiDAR scans using ICP (Iterative Closest Point).
+    - **UTM (Universal Transverse Mercator)**: A Cartesian coordinate system derived from WGS84.
+    - **TF2 (Transform Library)**: Handles transformations between coordinate frames in ROS 2.
+    - **Pose Estimation**: Combining GNSS and odometry data to predict the vehicle's current pose.
+    
+    ---
+    
+    ### **3. Important Processes**
+    
+    1. **Data Import**:
+        - Use `rosbags` to read data from the ROS 2 bag file.
+        - Extract ground truth and predicted poses.
+    2. **Data Conversion**:
+        - Convert extracted data into a pandas DataFrame for easier manipulation and analysis.
+    3. **Pose Matching**:
+        - Match ground truth poses with corresponding estimated poses using `pd.merge_asof`.
+    4. **Error Calculation**:
+        - Compute errors in position (`dx`, `dy`) and orientation (`dpsi`).
+        - Transform errors into vehicle-centric coordinates (`dlon`, `dlat`).
+    5. **Visualization**:
+        - Plot trajectories, yaw angles, and error distributions.
+        - Use boxplots and color-coded scatter plots to visualize errors spatially.
+    
+    ---
+    
+    ### **4. Functions**
+    
+    1. **`read_trajectory`**:
+        - **Purpose**: Reads a ROS 2 bag file and extracts trajectory data.
+        - **Inputs**: Bag file path, topic name.
+        - **Outputs**: List of `TrajectoryPoint2D` objects.
+        - **Process**:
+            - Deserializes messages of type `nav_msgs::msg::Odometry` or `geometry_msgs::msg::PoseStamped`.
+            - Calls `from_odometry` or `from_pose` methods on `TrajectoryPoint2D` objects.
+    2. **`from_odometry` and `from_pose`**:
+        - **Purpose**: Sets member variables of `TrajectoryPoint2D` based on input messages.
+        - **Inputs**: ROS message (`nav_msgs::msg::Odometry` or `geometry_msgs::msg::PoseStamped`).
+        - **Outputs**: Populated `TrajectoryPoint2D` object.
+    3. **`pd.merge_asof`**:
+        - **Purpose**: Matches ground truth and estimated poses based on timestamps.
+        - **Inputs**: Two DataFrames (`df_gt`, `df_est`), tolerance for matching.
+        - **Outputs**: Merged DataFrame with paired poses.
+    4. **Error Calculation**:
+        - **Position Errors**:
+            
+            ```python
+            df['dx'] = df['x_ground_truth'] - df['x_estimate']
+            df['dy'] = df['y_ground_truth'] - df['y_estimate']
+            
+            ```
+            
+        - **Yaw Error**:
+            
+            ```python
+            df['dpsi'] = df['psi_ground_truth'] - df['psi_estimate']
+            
+            ```
+            
+        - **Vehicle-Centric Errors**:
+            
+            ```python
+            df['dlon'] = df['dx']*np.cos(df['psi_ground_truth']*np.pi/180.0) + df['dy']*np.sin(df['psi_ground_truth']*np.pi/180.0)
+            df['dlat'] = -df['dx']*np.sin(df['psi_ground_truth']*np.pi/180.0) + df['dy']*np.cos(df['psi_ground_truth']*np.pi/180.0)
+            
+            ```
+            
+    5. **Visualization**:
+        - **Trajectories**:
+            
+            ```python
+            df.plot(x='x_ground_truth', y='y_ground_truth', ax=ax)
+            df.plot(x='x_estimate', y='y_estimate', ax=ax)
+            
+            ```
+            
+        - **Yaw Angle**:
+            
+            ```python
+            df.plot(x='t', y='psi_ground_truth', ax=ax)
+            df.plot(x='t', y='psi_estimate', ax=ax)
+            
+            ```
+            
+        - **Boxplots**:
+            
+            ```python
+            df.boxplot(column='dx', ax=ax[0], whis=[0, 100])
+            df.boxplot(column='dy', ax=ax[1], whis=[0, 100])
+            df.boxplot(column='dpsi', ax=ax[2], whis=[0, 100])
+            
+            ```
+            
+    
+    ---
+    
+    ### **5. Terms**
+    
+    - **WGS84**: World Geodetic System 1984, a global reference system for geospatial data.
+    - **UTM**: Universal Transverse Mercator, a Cartesian coordinate system for mapping.
+    - **TF2**: A ROS 2 library for managing transformations between coordinate frames.
+    - **ICP (Iterative Closest Point)**: An algorithm for aligning point clouds.
+    - **KISS-ICP**: A lightweight implementation of ICP for LiDAR odometry.
+    
+    ---
+    
+    ### **6. Formulas**
+    
+    1. **Vehicle-Centric Errors**:
+        - Longitudinal Error:
+            
+            ```python
+            dlon = dx * cos(psi) + dy * sin(psi)
+            
+            ```
+            
+        - Lateral Error:
+            
+            ```python
+            dlat = -dx * sin(psi) + dy * cos(psi)
+            
+            ```
+            
+    2. **Yaw Error**:
+        
+        ```python
+        dpsi = psi_ground_truth - psi_estimate
+        
+        ```
+        
+    
+    ---
+    
+    ### **7. Input and Output**
+    
+    | Function | Input | Output |
+    | --- | --- | --- |
+    | `read_trajectory` | Bag file path, topic name | List of `TrajectoryPoint2D` objects |
+    | `pd.merge_asof` | Two DataFrames (`df_gt`, `df_est`), tolerance | Merged DataFrame with paired poses |
+    | Error Calculation | Ground truth and estimated poses | Position (`dx`, `dy`), yaw (`dpsi`), and vehicle-centric errors (`dlon`, `dlat`) |
+    
+    ---
+    
+    ### **8. Process Flow**
+    
+    1. **Data Import**:
+        - Load bag file using `rosbags`.
+        - Extract ground truth and predicted poses.
+    2. **Data Conversion**:
+        - Convert extracted data into pandas DataFrames.
+    3. **Pose Matching**:
+        - Match ground truth and estimated poses using `pd.merge_asof`.
+    4. **Error Calculation**:
+        - Compute position and yaw errors.
+        - Transform errors into vehicle-centric coordinates.
+    5. **Visualization**:
+        - Plot trajectories, yaw angles, and error distributions.
+        - Use boxplots and color-coded scatter plots for detailed analysis.
+    
+    ---
+    
+    ### **9. Data Sizes**
+    
+    - **Bag File**: `localization_evaluation` folder containing `.db3` files.
+    - **Ground Truth Topic**: `/ground_truth/pose` (20 Hz).
+    - **Predicted Pose Topic**: `/localization/predicted_pose` (10 Hz).
+    
+    ---
+    
+    ### **10. Network Architectures and Models**
+    
+    - **KISS-ICP**: Lightweight ICP-based LiDAR odometry pipeline.
+    - **TF2**: Handles transformations between coordinate frames.
+    
+    ---
+    
+    ### **11. Hyperparameters and Parameters**
+    
+    - **KISS-ICP Parameters**:
+        - `max_range`: Maximum range for point cloud processing (e.g., 100.0 m).
+        - `min_range`: Minimum range for point cloud processing (e.g., 5.0 m).
+        - `deskew`: Enable/disable deskewing (e.g., `False`).
+        - `initial_threshold`: Threshold for initial alignment (e.g., 2.0).
+        - `min_motion_th`: Minimum motion threshold for updating (e.g., 0.01).
+    
+    ---
+    
+    ### **12. Evaluation**
+    
+    - **Metrics**:
+        - Position errors (`dx`, `dy`).
+        - Yaw error (`dpsi`).
+        - Vehicle-centric errors (`dlon`, `dlat`).
+    - **Visualizations**:
+        - Trajectories overlaid on a 2D plot.
+        - Yaw angle comparison over time.
+        - Boxplots for error distributions.
+        - Spatial distribution of longitudinal and lateral errors.
+    
+    ---
+    
+    ### **13. Wrap-up**
+    
+    - You have evaluated a localization stack combining GNSS and LiDAR odometry.
+    - Learned about importing and parsing ROS 2 bag files using `rosbags`.
+    - Gained experience with pandas for data manipulation and visualization.
+    - Analyzed localization performance using various metrics and visualizations.
+    
+- 
+</aside>
