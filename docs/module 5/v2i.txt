@@ -1,0 +1,360 @@
+<aside>
+💡
+
+tasks:
+
+### **Structured and Detailed Explanation Notes for the Assignment**
+
+---
+
+### **1. Concepts**
+
+This assignment focuses on implementing a trajectory planning system that reacts to traffic lights using SPaT (Signal Phase and Timing) and MAP messages. It involves:
+
+- **SPATEM (SPaT Message)** : Provides information about the current state of traffic lights and their timing.
+- **MAPEM (MAP Message)** : Describes the topology of intersections, including lanes and their relationships with traffic signals.
+- **MQTT Protocol** : A lightweight messaging protocol used for subscribing to and publishing messages.
+- **ROS (Robot Operating System)** : Used for managing nodes, topics, and message processing.
+
+The goal is to:
+
+1. Configure an MQTT bridge to receive SPATEM and MAPEM messages.
+2. Visualize these messages in RViz.
+3. Modify the trajectory planner to react to traffic light states.
+4. Extend the system to visualize other vehicles via Cooperative Awareness Messages (CAM).
+
+---
+
+### **2. Important Processes**
+
+### **Task 1: Configure the Bridge**
+
+- **Objective** : Set up an MQTT client to subscribe to SPATEM and MAPEM messages from the broker.
+- **Steps** :
+    1. Build the workspace using **`catkin build`**.
+    2. Source the setup file: **`source devel/setup.bash`**.
+    3. Create or update the configuration file (**`v2x_tp_params.yaml`**) with the broker details:
+        - Host: **`broker.hivemq.com`**
+        - Port: **`1883`**
+        - Topics:
+            - SPATEM: **`ika_acdc_22/SPATEM`** → **`/SPATEM`**
+            - MAPEM: **`ika_acdc_22/MAPEM`** → **`/MAPEM`**
+    4. Launch the MQTT node: **`roslaunch mqtt_launchpack v2x_tp_mqtt.launch`**.
+
+### **Task 2: Visualize Messages in RViz**
+
+- **Objective** : Use the **`etsi_visualization`** package to display SPATEM and MAPEM data.
+- **Steps** :
+    1. Adjust the **`start_ETSIViz.launch`** file to set the ROS topics for SPATEM and MAPEM:
+        
+        **xml**
+        
+        Copy
+        
+        1
+        
+        2
+        
+        <param name="SPAT_Topic_Name" value="/SPATEM" />
+        
+        <param name="MAP_Topic_Name" value="/MAPEM" />
+        
+    2. Implement missing logic in **`MAPViz.cpp`** and **`SPATViz.cpp`**:
+        - **MAPViz.cpp** : Identify the number of intersections in the MAPEM message.
+            
+            **cpp**
+            
+            Copy
+            
+            1
+            
+            int n_intersections = msg.intersections.size();
+            
+        - **SPATViz.cpp** :
+            - Fill the **`SignalGroup`** struct with SPATEM data:
+                
+                **cpp**
+                
+                Copy
+                
+                1
+                
+                2
+                
+                sg.sg_id = spat_intsctn.states[m].signalGroup;
+                
+                sg.next_change = spat_intsctn.states[m].state_time_speed[0].timing_likelyTime;
+                
+            - Set marker colors based on signal states:
+                
+                **cpp**
+                
+                Copy
+                
+                1
+                
+                2
+                
+                3
+                
+                4
+                
+                5
+                
+                6
+                
+                7
+                
+                8
+                
+                9
+                
+                10
+                
+                11
+                
+                12
+                
+                13
+                
+                ⌄
+                
+                switch(state) {
+                
+                case 2: // Red
+                
+                marker.color.r = 1.0;
+                
+                marker.color.g = 0.0;
+                
+                marker.color.b = 0.0;
+                
+                break;
+                
+                case 5: // Green
+                
+                marker.color.r = 0.0;
+                
+                marker.color.g = 1.0;
+                
+                marker.color.b = 0.0;
+                
+                break;
+                
+                ...
+                
+                }
+                
+
+### **Task 3: Modify the Trajectory Planner**
+
+- **Objective** : Adapt the trajectory planner to stop at red lights and proceed when they turn green.
+- **Steps** :
+    1. Update **`vehicle_guidance_v2x.launch`** to include SPATEM and MAPEM topics:
+        
+        **xml**
+        
+        Copy
+        
+        1
+        
+        2
+        
+        <param name="topic_spatem" value="/SPATEM" />
+        
+        <param name="topic_mapem" value="/MAPEM" />
+        
+    2. Process MAPEM in **`v2x_planner_interface.cpp`**:
+        - Identify the number of intersections:
+            
+            **cpp**
+            
+            Copy
+            
+            1
+            
+            int n_intersections = msg.intersections.size();
+            
+        - Filter ingress lanes (ignore egress lanes):
+            
+            **cpp**
+            
+            Copy
+            
+            1
+            
+            2
+            
+            bool is_egress_lane = lane.directionalUse != definitions::v2x_MAP_Lane::LaneDirection_ingressPath;
+            
+            if (is_egress_lane) continue;
+            
+    3. Process SPATEM:
+        - Check if the signal is red:
+            
+            **cpp**
+            
+            Copy
+            
+            1
+            
+            2
+            
+            3
+            
+            4
+            
+            if(spat_intsctn.states[m].state_time_speed[0].eventState == 5 || spat_intsctn.states[m].state_time_speed[0].eventState == 6)
+            
+            trafficlights[k].red = false;
+            
+            else
+            
+            trafficlights[k].red = true;
+            
+
+### **Task 4: Visualize Other Vehicles via CAM**
+
+- **Objective** : Extend the system to display nearby vehicles using CAM messages.
+- **Steps** :
+    1. Add CAM subscription in the MQTT configuration:
+        
+        **yaml**
+        
+        Copy
+        
+        1
+        
+        2
+        
+        ⌄
+        
+        - mqtt_topic: ika_acdc_22/CAM
+        
+        ros_topic: /CAM
+        
+    2. Update **`start_ETSIViz.launch`** to include the CAM topic:
+        
+        **xml**
+        
+        Copy
+        
+        1
+        
+        <param name="CAM_Topic_Name" value="/CAM" />
+        
+    3. Process CAM messages in **`ETSIViz.cpp`**:
+        - Extract vehicle ID, position, and velocity:
+            
+            **cpp**
+            
+            Copy
+            
+            1
+            
+            2
+            
+            3
+            
+            4
+            
+            5
+            
+            obj.IdInternal = msg.header_stationID;
+            
+            float lon = msg.basic_container.referencePosition_longitude;
+            
+            float lat = msg.basic_container.referencePosition_latitude;
+            
+            float v_x = msg.high_freq_container.speed_speedValue * std::cos(msg.high_freq_container.heading_headingValue);
+            
+            float v_y = msg.high_freq_container.speed_speedValue * std::sin(msg.high_freq_container.heading_headingValue);
+            
+
+---
+
+### **3. Functions**
+
+| **Function Name** | **Description** |
+| --- | --- |
+| **`v2x_planner_interface.cpp`** | **Processes SPATEM and MAPEM messages to determine traffic light states and positions.** |
+| **`MAPViz.cpp`** | **Visualizes intersection topology from MAPEM messages.** |
+| **`SPATViz.cpp`** | **Visualizes traffic light states and timers from SPATEM messages.** |
+| **`ETSIViz.cpp`** | **Displays all visualizations (SPATEM, MAPEM, CAM) in RViz.** |
+
+---
+
+### **4. Terms**
+
+| **Term** | **Definition** |
+| --- | --- |
+| **SPATEM** | **Signal Phase and Timing Message; provides traffic light states and timings.** |
+| **MAPEM** | **MAP Message; describes intersection topology and lane configurations.** |
+| **CAM** | **Cooperative Awareness Message; shares vehicle positions and velocities.** |
+| **MQTT** | **Messaging protocol for lightweight communication.** |
+| **ROS** | **Robot Operating System; framework for managing robotic applications.** |
+
+---
+
+### **5. Formulas**
+
+- **Velocity Components** :*vx*=speed⋅cos(heading)*vy*=speed⋅sin(heading)
+
+---
+
+### **6. Input, Outputs, and Data Sizes**
+
+| **Component** | **Input** | **Output** | **Data Size** |
+| --- | --- | --- | --- |
+| **MQTT Client** | **SPATEM, MAPEM, CAM messages** | **ROS topics`/SPATEM`,`/MAPEM`,`/CAM`** | **~100-200 bytes per message** |
+| **ETSI Visualization** | **ROS topics`/SPATEM`,`/MAPEM`,`/CAM`** | **RViz markers** | **N/A** |
+| **Trajectory Planner** | **ROS topics`/SPATEM`,`/MAPEM`** | **Planned trajectory** | **~1 KB per plan** |
+
+---
+
+### **7. Network Architecture**
+
+- **Broker** : **`broker.hivemq.com`** (Public MQTT server).
+- **Topics** :
+    - **`ika_acdc_22/SPATEM`** → **`/SPATEM`**
+    - **`ika_acdc_22/MAPEM`** → **`/MAPEM`**
+    - **`ika_acdc_22/CAM`** → **`/CAM`**
+
+---
+
+### **8. Models and Hyperparameters**
+
+- **Models** : None explicitly mentioned; the focus is on rule-based logic for traffic light handling.
+- **Hyperparameters** : Not applicable.
+
+---
+
+### **9. Parameters**
+
+| **Parameter** | **Value** | **Description** |
+| --- | --- | --- |
+| **`broker.host`** | **`broker.hivemq.com`** | **MQTT broker address.** |
+| **`broker.port`** | **`1883`** | **MQTT broker port.** |
+| **`SPAT_Topic_Name`** | **`/SPATEM`** | **ROS topic for SPATEM messages.** |
+| **`MAP_Topic_Name`** | **`/MAPEM`** | **ROS topic for MAPEM messages.** |
+| **`CAM_Topic_Name`** | **`/CAM`** | **ROS topic for CAM messages.** |
+
+---
+
+### **10. Process Flow**
+
+1. **Setup** :
+    - Build and source the ROS workspace.
+    - Configure the MQTT bridge to subscribe to SPATEM, MAPEM, and CAM messages.
+2. **Visualization** :
+    - Parse and visualize SPATEM and MAPEM data in RViz.
+3. **Trajectory Planning** :
+    - Interpret SPATEM and MAPEM messages to adjust the vehicle's trajectory based on traffic light states.
+4. **Cooperative Awareness** :
+    - Extend the system to display nearby vehicles using CAM messages.
+
+---
+
+This structured explanation covers all key aspects of the assignment, providing a clear roadmap for implementation and understanding.
+
+</aside>

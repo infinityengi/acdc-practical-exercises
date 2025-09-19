@@ -1,0 +1,641 @@
+<aside>
+💡
+
+- task1
+    
+    
+    # Structured Notes: Geometric Algorithm and Geometric ISM
+    
+    ---
+    
+    ### **Step 1: Ground Point Extraction from Lidar Point Cloud**
+    
+    - **Objective**: Extract ground points from lidar point cloud while excluding obstacle points.
+    - **Tool**: **PassThrough Filter** from the **PointCloudLibrary (PCL)**.
+        - **Purpose**: Filters points based on specific field values (e.g., `x`, `y`, `z`) and defined range limits.
+    - **Launch File**:
+    Path: `workshops/section_2/pointcloud_ogm/launch/GeometricISM.launch`
+        
+        ```xml
+        <node pkg="nodelet" type="nodelet" name="GroundExtraction" args="load pcl/PassThrough $(arg nodelet_manager)" output="screen">
+          <remap from="~input" to="/points2" />
+          <remap from="~output" to="/points2_obstacles" />
+          <rosparam>
+            filter_limit_negative: False
+            filter_field_name: x
+            filter_limit_min: -50
+            filter_limit_max: 50
+          </rosparam>
+        </node>
+        
+        ```
+        
+    - **Parameters**:
+        - `filter_field_name`: Field to filter (e.g., `x`, `y`, or `z`).
+        - `filter_limit_min` and `filter_limit_max`: Range for filtering.
+        - **Task**: Modify parameters to effectively extract ground points and exclude obstacles.
+    - **Process**:
+        1. Adjust parameters in the launch file.
+        2. Terminate the running node (`CTRL+C`).
+        3. Relaunch and observe effects in visualization tools (e.g., Rviz).
+    
+    ---
+    
+    ### **Step 2: Completing Geometric Inverse Sensor Model (ISM)**
+    
+    - **Nodelet**: `pointcloud_ogm/GeometricISM`
+        - **Input**: Lidar point cloud.
+        - **Output**: Occupancy grid maps via:
+            - **Geometric inverse sensor model**.
+            - **Binary Bayes filter**.
+    - **Code Location**: `workshops/section_2/pointcloud_ogm/src/GeometricISM.src`
+    
+    ### **Workflow of the Code**:
+    
+    1. **Receiving Data**: Lidar point cloud triggers the `messageCallback()` method.
+    2. **Initializing Grid Map**:
+        - All cells initialized to `0.5` (50% occupancy probability).
+    3. **Point Evaluation**:
+        - Each point forms a **line to the sensor**.
+        - Occupancy probabilities are computed for all grid cells on this line using the inverse sensor model.
+    4. **Combining Probabilities**:
+        - **Binary Bayes Filter**:
+            - Updates cell probability by combining previous grid map state with inverse sensor model output.
+    5. **Publishing Results**: Measurement grid map published for visualization in **Rviz**.
+    
+    ---
+    
+    ### **Inverse Sensor Model Implementation**
+    
+    - **Desired Behavior**:
+        - Probability values for cells along the line:
+            - **Reflection point cell**: `90%` occupancy probability.
+            - **Next 2 cells toward the sensor**: `80%` and `50%`.
+            - **Remaining cells**: `10%`.
+    - **Code Snippet**:
+        
+        ```cpp
+        int cell = 0;
+        for (grid_map::LineIterator iterator(grid_map_measurement, start_position, end_position); !iterator.isPastEnd(); ++iterator) {
+          auto& occupancy_probability = grid_map_measurement.at("occupancy_probability", *iterator);
+        
+          // Inverse Sensor Model
+          double p_ism;
+          if (cell == 0) {
+            p_ism = 0.9;  // Reflection point
+          } else if (cell == 1) {
+            p_ism = 0.8;  // Next cell
+          } else if (cell == 2) {
+            p_ism = 0.5;  // Second cell
+          } else {
+            p_ism = 0.1;  // Remaining cells
+          }
+        
+          // Binary Bayes Filter
+          occupancy_probability = (p_ism * occupancy_probability) /
+                                  (p_ism * occupancy_probability + (1 - p_ism) * (1 - occupancy_probability));
+        
+          cell++;
+        }
+        
+        ```
+        
+    
+    ---
+    
+    ### **Compiling and Visualizing**
+    
+    1. Compile the workspace:
+        
+        ```bash
+        catkin build pointcloud_ogm
+        
+        ```
+        
+    2. Launch the file:
+        
+        ```bash
+        roslaunch pointcloud_ogm GeometricISM.launch
+        
+        ```
+        
+    3. Enable visualization in Rviz:
+        - Check the box for **"Grid Map (GeometricISM)"**.
+    
+    ---
+    
+    ### **Key Concepts and Formulae**
+    
+    - **PassThrough Filter**:
+        - Filters points within a defined range for a specific field.
+    - **Binary Bayes Filter**:
+        - Updates probabilities:
+            
+            Pnew=PISM⋅PoldPISM⋅Pold+(1−PISM)⋅(1−Pold)P_{\text{new}} = \frac{P_{\text{ISM}} \cdot P_{\text{old}}}{P_{\text{ISM}} \cdot P_{\text{old}} + (1 - P_{\text{ISM}}) \cdot (1 - P_{\text{old}})}
+            
+        - Combines inverse sensor model probabilities with prior probabilities.
+    
+    ---
+    
+    ### **Tips for Effective Implementation**
+    
+    1. **Parameter Tuning**:
+        - Adjust filter limits iteratively to achieve optimal ground point extraction.
+    2. **Testing and Debugging**:
+        - Visualize intermediate results in Rviz.
+        - Compare results against expected occupancy maps.
+    3. **Model Understanding**:
+        - Analyze the inverse sensor model's impact on grid map accuracy and computational efficiency.
+
+```cpp
+double p_ism;
+// TASK 2 BEGIN// ADD YOUR CODE HERE...if(cell == 0)
+        p_ism = 0.9;
+      else if(cell == 1)
+        p_ism = 0.8;
+      else if(cell == 2)
+        p_ism = 0.5;
+      else
+        p_ism = 0.1;
+```
+
+- task2
+    
+    properties `[x, y, z, intensity]`
+    
+    How many cells has one occupancy grid map in the training dataset?
+    
+    grid_map shape: (512, 352, 2)
+    
+    Total Cells=512×352=180,224
+    
+    Each cell contains 2 values (one for "free" and one for "occupied"), but the number of cells remains 512×352.
+    
+    # Evidential Prediction Head
+    
+    ```
+    # TASK 3: Set the correct activation function
+    ### START CODE HERE ###
+    prediction = tf.keras.layers.Conv2D(filters=2, kernel_size=(3, 3),
+                                        padding="same",
+                                        name="ogm/conv2d",
+                                        activation="relu")(output)
+    ### END CODE HERE ###
+    
+    ```
+    
+    ### Assignment Overview: Deep Learning Pipeline for Occupancy Grid Mapping
+    
+    This assignment introduces the process of creating a deep learning pipeline to train a model that generates occupancy grid maps from 3D LiDAR point clouds. Below is a structured and detailed explanation of the concepts, processes, functions, terms, formulas, inputs, outputs, data sizes, network architectures, models, hyperparameters, and parameters.
+    
+    ---
+    
+    ## **1. Concepts**
+    
+    - **Occupancy Grid Maps**: A 2D representation of the environment where each cell represents the probability of being occupied or free.
+    - **LiDAR Point Clouds**: A collection of 3D points captured by a LiDAR sensor, representing the environment's geometry.
+    - **Deep Learning Pipeline**: A sequence of steps to prepare, preprocess, train, validate, and test a neural network.
+    - **PointPillars**: A neural network architecture designed for processing 3D point clouds efficiently using pillar-based encoding.
+    - **Evidential Prediction Head**: A custom prediction head added to the PointPillars architecture to predict occupancy grid maps instead of 3D bounding boxes.
+    
+    ---
+    
+    ## **2. Important Processes**
+    
+    ### **2.1 Data Loading**
+    
+    - **Datasets**:
+        - **Training Dataset**: `dataset_train` (100 samples).
+        - **Validation Dataset**: `dataset_valid` (50 samples).
+        - **Testing Dataset**: `dataset_test` (50 synthetic samples) and `dataset_real` (50 real-world samples).
+    - **Data Preparation**:
+        - Downloaded as ZIP archives containing PCD files (point clouds) and PNG files (occupancy grid maps).
+        - Converted to NumPy arrays for TensorFlow processing.
+    
+    ### **2.2 Data Preprocessing**
+    
+    - **Augmentation**:
+        - Random rotation of both point clouds and grid maps to increase dataset diversity.
+        - Implemented using a custom function `augmentSample`.
+    - **Conversion to Pillars**:
+        - Point clouds are converted into tensors of pillars using the `createPillars` function.
+        - This reduces computational complexity while preserving spatial information.
+    
+    ### **2.3 Model Training**
+    
+    - **Loss Function**:
+        - Custom loss function based on Kullback-Leibler (KL) divergence to measure the difference between predicted and true distributions.
+    - **Optimization**:
+        - Adam optimizer used to minimize the loss function.
+    
+    ### **2.4 Model Evaluation**
+    
+    - **Synthetic Data Testing**:
+        - Predictions are generated for synthetic test data and visualized.
+    - **Real-World Data Testing**:
+        - A pretrained model is used to predict occupancy grid maps for real-world point clouds.
+    
+    ---
+    
+    ## **3. Key Functions**
+    
+    ### **3.1 `augmentSample(point_cloud, grid_map)`**
+    
+    - **Purpose**: Augments training samples by rotating point clouds and grid maps by the same random angle.
+    - **Implementation**:
+        
+        ```python
+        angle = random.uniform(-math.pi, math.pi)
+        grid_map = rotate(grid_map, np.degrees(angle), mode='nearest', order=0)
+        rotation_matrix = np.array([[math.cos(angle), -math.sin(angle)],
+                                    [math.sin(angle), math.cos(angle)]])
+        point_cloud[:, 0:2] = (rotation_matrix @ point_cloud[:, 0:2].T).T
+        
+        ```
+        
+    
+    ### **3.2 `preprocessSample(input_, label_=None)`**
+    
+    - **Purpose**: Converts raw point clouds into pillar tensors and resizes grid maps.
+    - **Steps**:
+        - Applies data augmentation if labels are provided.
+        - Clips intensity values to a normalized range `[0, 1]`.
+        - Converts point clouds to pillars using `createPillars`.
+    
+    ### **3.3 `numpyWrapper(input_, label_=None)`**
+    
+    - **Purpose**: Wraps preprocessing functions to allow integration with TensorFlow's data pipeline.
+    - **Output**:
+        - Returns `(pillars, voxels)` for inputs and `(grid_map)` for labels.
+    
+    ### **3.4 `evidences_to_masses(logits)`**
+    
+    - **Purpose**: Converts predicted evidences into belief masses and uncertainty values.
+    - **Formula**:
+        - Dirichlet strength: \( S = \sum \alpha \)
+        - Belief masses: \( \text{prob} = \frac{\alpha}{S} \)
+        - Uncertainty: \( u = \frac{\text{num_classes}}{S} \)
+    
+    ### **3.5 `ExpectedMeanSquaredError(y_true, y_pred)`**
+    
+    - **Purpose**: Computes the loss function using KL divergence and mean squared error.
+    - **Formula**:
+    \[
+    \text{loss} = \|\text{y_true} - \text{prob}\|^2 + \sum \frac{\text{prob} \cdot (1 - \text{prob})}{S + 1}
+    \]
+    
+    ---
+    
+    ## **4. Terms and Formulas**
+    
+    ### **4.1 Parameters**
+    
+    - **Batch Size**: `batch_size = 2`
+    - **Max Points per Pillar**: `max_points_per_pillar = 100`
+    - **Max Pillars**: `max_pillars = 10000`
+    - **Number of Features**: `number_features = 9`
+    - **Number of Channels**: `number_channels = 64`
+    - **Grid Dimensions**:
+        - \( x_{\text{min}} = -40.96 \), \( x_{\text{max}} = 40.96 \)
+        - \( y_{\text{min}} = -28.16 \), \( y_{\text{max}} = 28.16 \)
+        - \( z_{\text{min}} = -3.0 \), \( z_{\text{max}} = 1.0 \)
+    - **Step Sizes**:
+        - \( \text{step_x_size} = 0.16 \)
+        - \( \text{step_y_size} = 0.16 \)
+    
+    ### **4.2 Formulas**
+    
+    - **Dirichlet Strength**: \( S = \sum \alpha \)
+    - **Belief Masses**: \( \text{prob} = \frac{\alpha}{S} \)
+    - **Uncertainty**: \( u = \frac{\text{num_classes}}{S} \)
+    - **Loss Function**:
+    \[
+    \text{loss} = \|\text{y_true} - \text{prob}\|^2 + \sum \frac{\text{prob} \cdot (1 - \text{prob})}{S + 1}
+    \]
+    
+    ---
+    
+    ## **5. Input and Output**
+    
+    ### **5.1 Inputs**
+    
+    - **Point Clouds**: 3D coordinates and intensity values.
+    - **Grid Maps**: Labels in the form of 2D occupancy grids.
+    
+    ### **5.2 Outputs**
+    
+    - **Predicted Grid Maps**: 2D grids representing the likelihood of occupancy.
+    
+    ---
+    
+    ## **6. Process Flow**
+    
+    1. **Dataset Loading**:
+        - Load synthetic and real-world datasets using TensorFlow Datasets.
+    2. **Data Preprocessing**:
+        - Convert point clouds to pillars.
+        - Apply data augmentation (random rotations).
+    3. **Model Building**:
+        - Define a modified PointPillars architecture.
+        - Add an "Evidential Prediction Head" for grid map prediction.
+    4. **Model Training**:
+        - Compile the model with the custom loss function.
+        - Train the model for 5 epochs.
+    5. **Model Evaluation**:
+        - Test the model on synthetic and real-world data.
+        - Analyze predictions and visualize results.
+    
+    ---
+    
+    ## **7. Network Architecture**
+    
+    ### **7.1 Backbone Architecture**
+    
+    - **PointPillars Feature Net**:
+        - Converts point clouds into pillar tensors.
+        - Uses convolutional layers to extract features.
+    - **CNN Backbone**:
+        - Processes pillar tensors through multiple convolutional blocks.
+        - Includes dropout and batch normalization layers.
+    
+    ### **7.2 Evidential Prediction Head**
+    
+    - **Convolutional Layer**:
+        - Filters: 2 (for free and occupied states).
+        - Kernel Size: \(3 \times 3\).
+        - Activation: ReLU (to ensure evidence values are non-negative).
+    
+    ---
+    
+    ## **8. Hyperparameters**
+    
+    - **Optimizer**: Adam.
+    - **Learning Rate**: Default value for Adam (0.001).
+    - **Epochs**: 5.
+    - **Batch Size**: 2.
+    
+    ---
+    
+    ## **9. Parameters**
+    
+    - **Total Parameters**: 4,741,058
+    - **Trainable Parameters**: 4,735,042
+    - **Non-Trainable Parameters**: 6,016
+    
+    ---
+    
+    ## **10. Results Analysis**
+    
+    - **Training Loss**: Decreases over epochs, indicating learning progress.
+    - **Validation Loss**: Fluctuates but generally aligns with training loss.
+    - **Predictions**:
+        - Synthetic Data: High accuracy due to similarity with training data.
+        - Real-World Data: Demonstrates practical applicability despite domain shift.
+    
+    ---
+    
+    ## **11. Conclusion**
+    
+    This assignment demonstrates the end-to-end process of building a deep learning pipeline for occupancy grid mapping. By leveraging PointPillars and custom loss functions, the model effectively learns to predict grid maps from 3D point clouds. The final step involves evaluating the model's performance on real-world data, showcasing its potential for automated driving applications.
+    
+- task3
+    
+    ### Structured and Detailed Explanation Notes for the Assignment
+    
+    ---
+    
+    ## **1. Concepts**
+    
+    - **Occupancy Grid Maps**: A 2D representation of the environment where each cell represents the probability of being occupied or free.
+    - **LiDAR Point Clouds**: A collection of 3D points captured by a LiDAR sensor, representing the environment's geometry.
+    - **Deep Learning-Based Inverse Sensor Model**: A neural network model that learns to predict occupancy grid maps directly from LiDAR point clouds.
+    - **PointPillars**: A neural network architecture designed for processing 3D point clouds efficiently using pillar-based encoding.
+    - **Belief Masses**: Probabilities derived from evidences predicted by the neural network, representing the likelihood of a cell being occupied or free.
+    - **Evidential Reasoning**: A mathematical framework used to calculate uncertainty and belief masses from evidences.
+    
+    ---
+    
+    ## **2. Important Processes**
+    
+    ### **2.1 Dataset Loading**
+    
+    - **Datasets**:
+        - **Training Dataset**: `dataset_train` (100 samples).
+        - **Validation Dataset**: `dataset_valid` (50 samples).
+        - **Testing Dataset**: `dataset_test` (50 synthetic samples) and `dataset_real` (50 real-world samples).
+    
+    ### **2.2 Data Preprocessing**
+    
+    - **Augmentation**:
+        - Random rotation of both point clouds and grid maps to increase dataset diversity.
+    - **Conversion to Pillars**:
+        - Point clouds are converted into tensors of pillars using the `createPillars` function.
+    
+    ### **2.3 Model Training**
+    
+    - **Loss Function**:
+        - Custom loss function based on Kullback-Leibler (KL) divergence to measure the difference between predicted and true distributions.
+    - **Optimization**:
+        - Adam optimizer used to minimize the loss function.
+    
+    ### **2.4 Model Evaluation**
+    
+    - **Synthetic Data Testing**:
+        - Predictions are generated for synthetic test data and visualized.
+    - **Real-World Data Testing**:
+        - A pretrained model is used to predict occupancy grid maps for real-world point clouds.
+    
+    ### **2.5 Deployment in ROS**
+    
+    - **Nodelet**: `pointcloud_ogm/DeepISM` receives point clouds, processes them using the trained TensorFlow model, and publishes occupancy grid maps.
+    - **Bug Fix**: Correct the implementation of the `tensor_to_grid_map()` method to ensure belief masses are computed correctly.
+    
+    ---
+    
+    ## **3. Key Functions**
+    
+    ### **3.1 `augmentSample(point_cloud, grid_map)`**
+    
+    - **Purpose**: Augments training samples by rotating point clouds and grid maps by the same random angle.
+    - **Implementation**:
+        
+        ```python
+        angle = random.uniform(-math.pi, math.pi)
+        grid_map = rotate(grid_map, np.degrees(angle), mode='nearest', order=0)
+        rotation_matrix = np.array([[math.cos(angle), -math.sin(angle)],
+                                    [math.sin(angle), math.cos(angle)]])
+        point_cloud[:, 0:2] = (rotation_matrix @ point_cloud[:, 0:2].T).T
+        
+        ```
+        
+    
+    ### **3.2 `preprocessSample(input_, label_=None)`**
+    
+    - **Purpose**: Converts raw point clouds into pillar tensors and resizes grid maps.
+    - **Steps**:
+        - Applies data augmentation if labels are provided.
+        - Clips intensity values to a normalized range `[0, 1]`.
+        - Converts point clouds to pillars using `createPillars`.
+    
+    ### **3.3 `numpyWrapper(input_, label_=None)`**
+    
+    - **Purpose**: Wraps preprocessing functions to allow integration with TensorFlow's data pipeline.
+    - **Output**:
+        - Returns `(pillars, voxels)` for inputs and `(grid_map)` for labels.
+    
+    ### **3.4 `evidences_to_masses(logits)`**
+    
+    - **Purpose**: Converts predicted evidences into belief masses and uncertainty values.
+    - **Formula**:
+        - Dirichlet strength: \( S = \sum \alpha \)
+        - Belief masses: \( \text{prob} = \frac{\alpha}{S} \)
+        - Uncertainty: \( u = \frac{\text{num_classes}}{S} \)
+    
+    ### **3.5 `ExpectedMeanSquaredError(y_true, y_pred)`**
+    
+    - **Purpose**: Computes the loss function using KL divergence and mean squared error.
+    - **Formula**:
+    \[
+    \text{loss} = \|\text{y_true} - \text{prob}\|^2 + \sum \frac{\text{prob} \cdot (1 - \text{prob})}{S + 1}
+    \]
+    
+    ### **3.6 `tensor_to_grid_map(const float* prediction, grid_map::GridMap& grid_map)`**
+    
+    - **Purpose**: Converts the predicted tensor into an occupancy grid map.
+    - **Bug Fix**:
+        - The belief masses (`m_occupied` and `m_free`) were not computed correctly. The corrected implementation ensures:
+        \[
+        m_{\text{occupied}} = \frac{\text{evidence\*occupied}}{S}, \quad m*{\text{free}} = \frac{\text{evidence\_free}}{S}
+        \]
+        - Where \( S = (1 + \text{evidence\_occupied}) + (1 + \text{evidence\_free}) \).
+    
+    ---
+    
+    ## **4. Terms and Formulas**
+    
+    ### **4.1 Parameters**
+    
+    - **Batch Size**: `batch_size = 2`
+    - **Max Points per Pillar**: `max_points_per_pillar = 100`
+    - **Max Pillars**: `max_pillars = 10000`
+    - **Number of Features**: `number_features = 9`
+    - **Number of Channels**: `number_channels = 64`
+    - **Grid Dimensions**:
+        - \( x_{\text{min}} = -40.96 \), \( x_{\text{max}} = 40.96 \)
+        - \( y_{\text{min}} = -28.16 \), \( y_{\text{max}} = 28.16 \)
+        - \( z_{\text{min}} = -3.0 \), \( z_{\text{max}} = 1.0 \)
+    - **Step Sizes**:
+        - \( \text{step_x_size} = 0.16 \)
+        - \( \text{step_y_size} = 0.16 \)
+    
+    ### **4.2 Formulas**
+    
+    - **Dirichlet Strength**: \( S = \sum \alpha \)
+    - **Belief Masses**: \( \text{prob} = \frac{\alpha}{S} \)
+    - **Uncertainty**: \( u = \frac{\text{num_classes}}{S} \)
+    - **Loss Function**:
+    \[
+    \text{loss} = \|\text{y_true} - \text{prob}\|^2 + \sum \frac{\text{prob} \cdot (1 - \text{prob})}{S + 1}
+    \]
+    
+    ---
+    
+    ## **5. Input and Output**
+    
+    ### **5.1 Inputs**
+    
+    - **Point Clouds**: 3D coordinates and intensity values.
+    - **Grid Maps**: Labels in the form of 2D occupancy grids.
+    
+    ### **5.2 Outputs**
+    
+    - **Predicted Grid Maps**: 2D grids representing the likelihood of occupancy.
+    
+    ---
+    
+    ## **6. Process Flow**
+    
+    1. **Dataset Loading**:
+        - Load synthetic and real-world datasets using TensorFlow Datasets.
+    2. **Data Preprocessing**:
+        - Convert point clouds to pillars.
+        - Apply data augmentation (random rotations).
+    3. **Model Building**:
+        - Define a modified PointPillars architecture.
+        - Add an "Evidential Prediction Head" for grid map prediction.
+    4. **Model Training**:
+        - Compile the model with the custom loss function.
+        - Train the model for 5 epochs.
+    5. **Model Evaluation**:
+        - Test the model on synthetic and real-world data.
+        - Analyze predictions and visualize results.
+    6. **Deployment in ROS**:
+        - Use the `pointcloud_ogm/DeepISM` nodelet to process point clouds and publish occupancy grid maps.
+    
+    ---
+    
+    ## **7. Network Architecture**
+    
+    ### **7.1 Backbone Architecture**
+    
+    - **PointPillars Feature Net**:
+        - Converts point clouds into pillar tensors.
+        - Uses convolutional layers to extract features.
+    - **CNN Backbone**:
+        - Processes pillar tensors through multiple convolutional blocks.
+        - Includes dropout and batch normalization layers.
+    
+    ### **7.2 Evidential Prediction Head**
+    
+    - **Convolutional Layer**:
+        - Filters: 2 (for free and occupied states).
+        - Kernel Size: \(3 \times 3\).
+        - Activation: ReLU (to ensure evidence values are non-negative).
+    
+    ---
+    
+    ## **8. Hyperparameters**
+    
+    - **Optimizer**: Adam.
+    - **Learning Rate**: Default value for Adam (0.001).
+    - **Epochs**: 5.
+    - **Batch Size**: 2.
+    
+    ---
+    
+    ## **9. Parameters**
+    
+    - **Total Parameters**: 4,741,058
+    - **Trainable Parameters**: 4,735,042
+    - **Non-Trainable Parameters**: 6,016
+    
+    ---
+    
+    ## **10. Results Analysis**
+    
+    - **Training Loss**: Decreases over epochs, indicating learning progress.
+    - **Validation Loss**: Fluctuates but generally aligns with training loss.
+    - **Predictions**:
+        - Synthetic Data: High accuracy due to similarity with training data.
+        - Real-World Data: Demonstrates practical applicability despite domain shift.
+    
+    ---
+    
+    ## **11. Quiz Answers**
+    
+    1. **How many layers does the grid map, which is published as ROS message, have?**
+        - **Answer**: 3 (m_occupied, m_free, occupancy_color).
+    2. **In which range are the evidences that are predicted by the neural network ("evidence_occupied" and "evidence_free")?**
+        - **Answer**: [0, +inf].
+    3. **In which range are the belief masses in the grid cells ("m_occupied" and "m_free")?**
+        - **Answer**: [0, 1].
+    
+    ---
+    
+    ## **12. Conclusion**
+    
+    This assignment demonstrates the end-to-end process of building a deep learning pipeline for occupancy grid mapping. By leveraging PointPillars and custom loss functions, the model effectively learns to predict grid maps from 3D point clouds. The final step involves deploying the model in a ROS environment, showcasing its potential for automated driving applications.
+    
+- task4
+- 
+</aside>

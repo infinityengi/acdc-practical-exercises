@@ -1,0 +1,333 @@
+<aside>
+💡
+
+- notes1
+    
+    
+    ![image.png](attachment:16c051c0-ccfc-4271-8d60-e373252121a0:image.png)
+    
+    Below are the structured notes based on the lecture transcript. The notes capture all important concepts, terms, and details related to the lanelet2 framework, its integration with Dijkstra’s algorithm for route planning, and how maps are constructed in lanelet2.
+    
+    ---
+    
+    # 1. Overview and Context
+    
+    - **Integration with Dijkstra Algorithm:**
+        
+        The lanelet2 framework utilizes the Dijkstra algorithm to solve vehicle navigation problems by determining the shortest path.
+        
+    - **Application Domain:**
+        
+        Used for route planning in automated driving, where a digital map provides necessary data for generating a drivable trajectory.
+        
+    
+    ---
+    
+    # 2. Lanelet2 Framework
+    
+    ## 2.1. Purpose and Functionality
+    
+    - **Digital Map Representation:**
+        
+        The map is described by **lanelets**, which are the building blocks for representing road networks.
+        
+    - **Route Planning:**
+        - The lanelet2 framework generates one or more **routing graphs** from the map data.
+        - These graphs can be specialized for different road users (e.g., cars, emergency vehicles, pedestrians).
+        - A **Dijkstra-search** is performed on the routing graph to determine:
+            - **Route:** All lanelets that could be used to reach the destination.
+            - **Shortest Path:** The optimal sequence of lanelets representing the minimal-cost route to the target.
+    - **Subsequent Motion Planning:**
+        
+        The output (shortest lanelet sequence) is used by higher-level motion planning algorithms to generate a drivable trajectory for the automated vehicle.
+        
+    
+    ---
+    
+    # 3. Map Construction in Lanelet2
+    
+    ## 3.1. Primitives of the Lanelet2 Map
+    
+    ### 3.1.1. Point
+    
+    - **Definition:**
+        
+        The most basic primitive.
+        
+    - **Attributes:**
+        - **Unique ID:**
+        Each point has a unique identifier.
+        - **Coordinates:**
+        Points are defined in all three dimensions (x, y, z).
+    
+    ### 3.1.2. Linestring
+    
+    - **Definition:**
+        
+        Used to describe linear elements such as lane markings.
+        
+    - **Composition:**
+        - Composed of multiple points.
+    - **Attributes:**
+        - **Type:**
+        An attribute that specifies the purpose of the line (e.g., solid line, dashed line).
+            - **Relational Information:**
+            The type of line determines road rules; for example, vehicles may be allowed to cross a dashed line but not a solid line.
+    
+    ### 3.1.3. Lanelet
+    
+    - **Definition:**
+        
+        A higher-level primitive representing a drivable lane segment.
+        
+    - **Composition:**
+        - **Two Linestrings:**
+        One representing the left boundary and one for the right boundary.
+    - **Role Assignment:**
+        - Each linestring is assigned a role (left or right) to define the driving direction.
+    - **Importance:**
+        - The relational information (from the types of the linestrings) helps generate the routing graph by establishing connectivity and permissible transitions between lanelets.
+    
+    ## 3.2. Additional Primitives
+    
+    - **Examples (Not Covered in Depth):**
+        - **Polygons**
+        - **Areas**
+        - **Regulatory Elements and Features**
+    
+    ---
+    
+    # 4. Routing Graph and Dijkstra Integration
+    
+    - **Routing Graph Generation:**
+        
+        Based on the relational information between lanelets, the lanelet2 framework generates a routing graph.
+        
+    - **Dijkstra Search:**
+        - **Purpose:**
+        To find the shortest lanelet sequence from the current vehicle position to the desired destination.
+        - **Outcome:**
+            - **Route vs. Shortest Path:**
+                - **Route:** Includes all lanelets that could be used to reach the destination.
+                - **Shortest Path:** The optimal sequence of lanelets that minimizes the cost (e.g., distance, travel time).
+    - **Subsequent Processing:**
+        
+        Once the shortest lanelet sequence is identified, additional guidance-level motion planning algorithms can generate a drivable trajectory.
+        
+    
+    ---
+    
+    # 5. Next Steps
+    
+    - **Upcoming Task:**
+    In the following video, you will learn how to use the lanelet2 framework to implement a route planning functionality, putting the concepts into practical application.
+    
+    ---
+    
+    These structured notes summarize the key points and detailed processes described in the lecture, including the lanelet2 framework, the primitives used in map construction, and the integration with Dijkstra’s algorithm for route planning in automated driving systems.
+    
+- jupyter
+    
+    
+    ### Assignment: Route-Planning with Lanelet2
+    
+    This assignment focuses on implementing a route-planning algorithm using the **Lanelet2** library, which is commonly used in automated driving systems. Below is a structured and detailed explanation of the concepts, processes, functions, terms, inputs, outputs, and other relevant details.
+    
+    ---
+    
+    ### **1. Concepts**
+    
+    ### **a. Lanelet2 Framework**
+    
+    - **Lanelet2** is a C++ library (with Python bindings) for handling map information for autonomous vehicles.
+    - It provides tools to represent road networks as **lanelets**, which are basic building blocks of roads defined by two parallel linestrings (left and right boundaries).
+    - Supports ROS integration for use in robotic software stacks.
+    
+    ### **b. Key Components of Lanelet2**
+    
+    1. **Nodes**: Represent points in space (WGS84 coordinates).
+    2. **Ways**: Linear elements like lane markings or curbs, composed of multiple nodes.
+    3. **Relations**: Define relationships between elements (e.g., combining two linestrings into a lanelet).
+    
+    ### **c. Coordinate Systems**
+    
+    - **WGS84**: A global coordinate system used for GPS data (latitude, longitude, altitude).
+    - **UTM (Universal Transverse Mercator)**: A 2D Cartesian coordinate system used for local maps.
+    
+    ### **d. Routing Graph**
+    
+    - A graph representation of the map where nodes represent intersections and edges represent lanelets.
+    - Used for planning routes using algorithms like Dijkstra's.
+    
+    ### **e. Traffic Rules**
+    
+    - Define which participants (vehicles, pedestrians, etc.) can traverse specific lanelets.
+    - Example: Vehicles cannot drive on walkways.
+    
+    ---
+    
+    ### **2. Important Processes**
+    
+    ### **a. Loading the Map**
+    
+    - The map is stored as an `.osm` file (OpenStreetMap format).
+    - Use `lanelet2.io.load()` to load the map and project it into UTM coordinates using a projector.
+    
+    ### **b. Defining Start and End Positions**
+    
+    - Convert WGS84 coordinates (latitude, longitude) to UTM coordinates using the `UtmProjector.forward()` function.
+    - Identify start and end positions within the map.
+    
+    ### **c. Initializing the Routing Graph**
+    
+    - Construct a routing graph using `lanelet2.routing.RoutingGraph()`.
+    - Requires the loaded lanelet map and traffic rules.
+    
+    ### **d. Planning the Route**
+    
+    - Use the `getRoute()` function of the routing graph to find a route between start and end lanelets.
+    - Extract the shortest path using the `shortestPath()` function.
+    
+    ### **e. Processing and Visualizing the Route**
+    
+    - Derive a path from the sequence of lanelets using their centerlines.
+    - Visualize the map, start/end positions, and the planned route.
+    
+    ---
+    
+    ### **3. Functions**
+    
+    ### *a. `print_osm(filepath)`
+    
+    - Prints the content of the `.osm` file to examine its structure.
+    
+    ### *b. `UtmProjector(origin)`
+    
+    - Initializes a projector to convert WGS84 coordinates to UTM.
+    - Input: `lanelet2.io.Origin(latitude, longitude)`.
+    
+    ### *c. `lanelet2.io.load(filepath, projector)`
+    
+    - Loads the map and projects it into UTM coordinates.
+    
+    ### *d. `latlon2mapframe(proj, pos_lat, pos_lon)`
+    
+    - Converts WGS84 coordinates to UTM coordinates.
+    - Output: `BasicPoint3d` object.
+    
+    ### *e. `find_nearest_lanelet(ll_map, pos, rules)`
+    
+    - Finds the nearest lanelet to a given position that satisfies traffic rules.
+    - Uses `lanelet2.geometry.findWithin3d()` to search for lanelets within a specified radius.
+    
+    ### *f. `lanelets2path(lanelet_path)`
+    
+    - Derives a path (x, y coordinates) from a sequence of lanelets by extracting their centerlines.
+    
+    ### *g. `plot_map(ll_map)`
+    
+    - Visualizes the lanelet map.
+    
+    ### *h. `plot_start_position(start_pos)` and `plot_end_position(end_pos)`
+    
+    - Visualize start and end positions on the map.
+    
+    ---
+    
+    ### **4. Terms**
+    
+    - **Lanelet**: A basic unit of the road network, defined by two parallel linestrings.
+    - **Routing Graph**: A graph representation of the road network for route planning.
+    - **Traffic Rules**: Regulations governing which participants can use specific lanelets.
+    - **Shortest Path**: A sequence of lanelets that minimizes travel cost (e.g., distance).
+    
+    ---
+    
+    ### **5. Formulas**
+    
+    No explicit formulas are provided in this assignment. However:
+    
+    - Conversion from WGS84 to UTM is handled internally by the `UtmProjector` class.
+    - Distance calculations are implicitly performed during route planning.
+    
+    ---
+    
+    ### **6. Inputs**
+    
+    - **Map File**: `.osm` file containing road network data.
+    - **Start Position**: WGS84 coordinates (latitude, longitude).
+    - **End Position**: WGS84 coordinates (latitude, longitude).
+    - **Traffic Rules**: Defined based on location (e.g., Germany) and participant type (e.g., vehicle).
+    
+    ---
+    
+    ### **7. Outputs**
+    
+    - **Visualized Map**: Displays the road network.
+    - **Planned Route**: Sequence of lanelets forming the shortest path.
+    - **Processed Path**: List of x, y coordinates representing the centerline of the route.
+    
+    ---
+    
+    ### **8. Process Flow**
+    
+    1. **Load and Examine the Map**
+        - Import dependencies.
+        - Load the `.osm` file and project it into UTM coordinates.
+    2. **Define Start and End Positions**
+        - Convert WGS84 coordinates to UTM.
+        - Identify start and end positions.
+    3. **Initialize the Routing Graph**
+        - Generate traffic rules.
+        - Create a routing graph using the lanelet map and traffic rules.
+    4. **Plan the Route**
+        - Find the nearest lanelets to the start and end positions.
+        - Use the routing graph to compute the shortest path.
+    5. **Process and Visualize the Route**
+        - Derive a path from the sequence of lanelets.
+        - Visualize the map, start/end positions, and the planned route.
+    
+    ---
+    
+    ### **9. Data Sizes**
+    
+    - **Map File**: Size depends on the complexity of the road network.
+    - **Lanelet Map**: Contains nodes, ways, and relations; size grows with the number of lanelets.
+    - **Route**: A list of lanelet IDs; size depends on the length of the planned route.
+    
+    ---
+    
+    ### **10. Network Architectures and Models**
+    
+    This assignment does not involve neural networks or machine learning models. Instead, it relies on:
+    
+    - **Graph-Based Algorithms**: For route planning (e.g., Dijkstra's algorithm).
+    - **Geometric Operations**: For finding nearest lanelets and extracting centerlines.
+    
+    ---
+    
+    ### **11. Hyperparameters and Parameters**
+    
+    - **Search Radius**: Used in `findWithin3d()` to locate nearby lanelets (default: 5.0 meters).
+    - **Traffic Participant Type**: Defines which lanelets are accessible (e.g., vehicles vs. pedestrians).
+    - **Location**: Specifies the region's traffic rules (e.g., Germany).
+    
+    ---
+    
+    ### **12. Summary**
+    
+    This assignment demonstrates how to use the Lanelet2 framework for route planning:
+    
+    1. Load and process a map.
+    2. Define start and end positions.
+    3. Initialize a routing graph.
+    4. Plan and process a route.
+    5. Visualize the results.
+    
+    By completing this task, you gain hands-on experience with:
+    
+    - Handling map data in autonomous driving systems.
+    - Implementing route planning algorithms.
+    - Visualizing geometric data in Python.
+    
+</aside>

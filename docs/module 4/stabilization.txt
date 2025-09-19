@@ -1,0 +1,340 @@
+<aside>
+💡
+
+- NOTES1
+    
+    
+    ![image.png](attachment:b1b863a7-08cd-40ff-9441-f20749ad0368:image.png)
+    
+    # Vehicle Stabilization and Control
+    
+    ## 1. Fundamentals of Vehicle Stabilization
+    
+    - **Stabilization Levels:**
+        - **High-Level Stabilization:** Focuses on maintaining overall vehicle stability.
+        - **Low-Level Stabilization:** Deals with correcting minor deviations.
+        - **Bi-Level Stabilization:** A combination of both high and low-level stabilization for enhanced control.
+    
+    ## 2. Practical Application: Vehicle Movement Calculation
+    
+    - **Objective:** Derive odometry equations to calculate vehicle movement along a pre-planned trajectory.
+    - **Purpose:** These equations help compute actual control variables for maintaining trajectory accuracy.
+    
+    ## 3. Implementation of PID Controller
+    
+    - **PID Controller:** A control loop mechanism widely used in industrial and automotive applications.
+    - **Output Equation:** Must be implemented to ensure effective control.
+    - **Integration:** The PID controller is integrated into both longitudinal and lateral controllers.
+    
+    ## 4. Vehicle Control Structure
+    
+    - **Framework Used:** ROS (Robot Operating System) framework.
+    - **Components:**
+        - **Feedforward Control (Pre-Implemented):** Already incorporated for both lateral and longitudinal control.
+        - **Trajectory Data Processing Module:**
+            - Calculates odometry.
+            - Interpolates target values from the trajectory.
+            - Provides control values to both controllers.
+    
+    ## 5. Longitudinal Controller
+    
+    - **Functionality:** Controls acceleration and velocity.
+    - **Components:**
+        - **Feedforward Controller:** Uses acceleration data from the trajectory.
+        - **Feedback Controller:** Uses PID control to regulate velocity.
+    - **Equation for Velocity Control:**
+        
+        ev=vdesired−vactuale_v = v_{desired} - v_{actual}
+        
+        u=Kpev+Ki∫evdt+Kddevdtu = K_p e_v + K_i \int e_v dt + K_d \frac{d e_v}{dt}
+        
+        - Kp,Ki,KdK_p, K_i, K_d are proportional, integral, and derivative gains, respectively.
+        - eve_v is the velocity error.
+        - uu is the control output.
+    
+    ## 6. Lateral Controller
+    
+    - **Functionality:** Maintains vehicle direction and stability.
+    - **Components:**
+        - **Feedforward Control:** Based on the Ackermann steering model and trajectory curvature.
+        - **Cascaded Feedback Controller:** Provides a desired yaw rate.
+        - **Inverse Single-Track Model:** Calculates the desired steering angle.
+    - **Yaw Rate Control Equation:**
+        
+        ψ˙=vLtan⁡(δ)\dot{\psi} = \frac{v}{L} \tan(\delta)
+        
+        - ψ˙\dot{\psi} is the yaw rate.
+        - vv is vehicle velocity.
+        - LL is the wheelbase length.
+        - δ\delta is the steering angle.
+    
+    ## 7. Summary
+    
+    - **Odometry Equations:** Used to determine vehicle movement.
+    - **PID Controllers:** Implemented for both longitudinal and lateral control.
+    - **Feedforward and Feedback Mechanisms:** Ensure effective trajectory tracking.
+    - **Inverse Single-Track Model:** Used to compute steering angles based on yaw rate.
+    
+    Enjoy implementing these concepts in your assignment!
+    
+- NOTES2
+    
+    
+    ### Structured and Detailed Explanation Notes for the Assignment
+    
+    ---
+    
+    ### **1. Overview**
+    
+    This assignment focuses on implementing a compensatory feedback controller for vehicle stabilization using the concept of bi-level stabilization. The tasks involve deriving odometry equations, calculating control deviations, implementing a discrete PID controller, designing longitudinal and lateral controllers, and utilizing an inverse single-track model to calculate the desired steering angle.
+    
+    The solution involves multiple steps, including coding in C++ within the ROS (Robot Operating System) framework, understanding the mathematical models behind vehicle dynamics, and integrating all components into a cohesive system.
+    
+    ---
+    
+    ### **2. Concepts and Important Processes**
+    
+    ### **2.1. Bi-Level Stabilization**
+    
+    - **Definition**: Combines high-level and low-level stabilization principles.
+        - High-level stabilization: Reinitializes the trajectory planner when deviations become too large.
+        - Low-level stabilization: Adjusts the vehicle's behavior based on real-time feedback.
+    - **Purpose**: Ensures robustness against both sudden and permanent disturbances.
+    
+    ### **2.2. Odometry Equations**
+    
+    - **Purpose**: Estimate the vehicle's position and orientation over time.
+    - **Key Variables**:
+        - `yawRate`: Angular velocity of the vehicle.
+        - `velocity`: Linear velocity of the vehicle.
+        - `dt`: Time step since the last update.
+        - `odom_dy_`: Lateral deviation from the planned trajectory.
+        - `odom_dpsi_`: Heading deviation from the planned trajectory.
+    
+    ### **2.3. PID Controller**
+    
+    - **Definition**: A control loop mechanism that uses proportional, integral, and derivative terms to minimize errors.
+    - **Output Equation**:
+    \[
+    u(t) = K_p e + K_i i_{\text{val}} + K_d d_{\text{val}}
+    \]
+    Where:
+        - \( K_p \): Proportional gain.
+        - \( K_i \): Integral gain.
+        - \( K_d \): Derivative gain.
+        - \( e \): Error between the desired and actual values.
+        - \( i_{\text{val}} \): Integral of the error over time.
+        - \( d_{\text{val}} \): Derivative of the error.
+    
+    ### **2.4. Longitudinal Controller**
+    
+    - **Purpose**: Controls the vehicle's speed.
+    - **Components**:
+        - Feedforward control: Uses acceleration from the trajectory planner.
+        - Feedback control: Adjusts velocity using a PID controller.
+    
+    ### **2.5. Lateral Controller**
+    
+    - **Purpose**: Controls the vehicle's steering.
+    - **Architecture**:
+        - Cascaded structure: Computes desired yaw rate first, then calculates the steering angle.
+        - Feedforward control: Based on Ackermann steering and trajectory curvature.
+        - Feedback control: Uses PID controllers for lateral deviation (`dy`) and heading deviation (`dpsi`).
+    
+    ### **2.6. Inverse Single-Track Model**
+    
+    - **Purpose**: Converts desired yaw rate into a steering angle.
+    - **Equation**:
+    \[
+    \delta = \frac{\dot{\psi} \cdot (l + EG \cdot v^2)}{v}
+    \]
+    Where:
+        - \( \delta \): Desired steering angle.
+        - \( \dot{\psi} \): Desired yaw rate.
+        - \( l \): Wheelbase of the vehicle.
+        - \( EG \): Self-steering gradient.
+        - \( v \): Vehicle velocity.
+    
+    ---
+    
+    ### **3. Functions, Terms, and Formulas**
+    
+    ### **3.1. Task 1: Implementation of Odometry Equations**
+    
+    - **Function**: Calculate lateral (`odom_dy_`) and heading (`odom_dpsi_`) deviations.
+    - **Formula**:
+    \[
+    \text{odom\*dy\*} += \sin(\text{odom\*dpsi\*} + \text{yawRate} \cdot 0.5 \cdot dt) \cdot \text{velocity} \cdot dt
+    \]
+    \[
+    \text{odom\*dpsi\*} += \text{yawRate} \cdot dt
+    \]
+    - **Inputs**:
+        - `cur_vehicle_state_.yaw_rate`
+        - `cur_vehicle_state_.velocity`
+        - `dt` (time step)
+    - **Outputs**:
+        - Updated `odom_dy_` and `odom_dpsi_`.
+    
+    ### **3.2. Task 2: Calculate Control Deviations**
+    
+    - **Function**: Compute deviations between the current vehicle state and the target trajectory.
+    - **Formula**:
+    \[
+    \text{dy\*} = \text{odom\dy\} - y*{\text{tgt\*}}
+    \]
+    \[
+    \text{dpsi\*} = \text{odom\*dpsi\*} - \psi_{\text{tgt\_}}
+    \]
+    - **Inputs**:
+        - `odom_dy_`, `odom_dpsi_` (from Task 1).
+        - `y_tgt_`, `psi_tgt_` (target values from the trajectory).
+    - **Outputs**:
+        - `dy_` (lateral deviation).
+        - `dpsi_` (heading deviation).
+    
+    ### **3.3. Task 3: Implement Output Equation of Discrete PID Controller**
+    
+    - **Function**: Derive the output equation for a discrete PID controller.
+    - **Formula**:
+    \[
+    \text{return } K_p \cdot e + K_i \cdot i_{\text{val}} + K_d \cdot d_{\text{val}}
+    \]
+    - **Inputs**:
+        - `e`: Error.
+        - `i_val_`: Integral value of the error.
+        - `d_val`: Derivative value of the error.
+        - `Kp_`, `Ki_`, `Kd_`: Gains of the PID controller.
+    - **Outputs**:
+        - Control signal for adjusting the system.
+    
+    ### **3.4. Task 4: Longitudinal Velocity Controller**
+    
+    - **Function**: Implement a feedback controller for longitudinal velocity.
+    - **Formula**:
+    \[
+    e_v = w_v - \text{velocity}
+    \]
+    \[
+    a_{\text{fb\_v}} = \text{dv\*pid\*} \to \text{Calc}(e_v, dt)
+    \]
+    - **Inputs**:
+        - `v_tgt_`: Target velocity.
+        - `cur_vehicle_state_.velocity`: Current velocity.
+        - `dt`: Time step.
+    - **Outputs**:
+        - `a_fb_v`: Feedback acceleration for velocity control.
+    
+    ### **3.5. Task 5: Cascaded Lateral Controller**
+    
+    - **Function**: Design a cascaded feedback controller for lateral control.
+    - **Formulas**:
+    \[
+    w_y = 0.0
+    \]
+    \[
+    e_y = w_y - \text{dy\*}
+    \]
+    \[
+    w*\psi = \text{dy\*pid\*} \to \text{Calc}(e_y, dt)
+    \]
+    \[
+    e_\psi = w_\psi - \text{dpsi\*}
+    \]
+    \[
+    \psi*{\text{dot\*des}} = \text{dpsi\pid\} \to \text{Calc}(e*\psi, dt)
+    \]
+    - **Inputs**:
+        - `dy_`, `dpsi_` (from Task 2).
+        - `dt`: Time step.
+    - **Outputs**:
+        - `psi_dot_des`: Desired yaw rate.
+    
+    ### **3.6. Task 6: Inverse Single-Track Model**
+    
+    - **Function**: Calculate the desired steering angle from the desired yaw rate.
+    - **Formula**:
+    \[
+    \text{st\_ang\*pid} = \frac{\psi*{\text{dot\_des}} \cdot (l + EG \cdot v^2)}{v}
+    \]
+    - **Inputs**:
+        - `psi_dot_des`: Desired yaw rate.
+        - `wheelbase_`: Wheelbase of the vehicle.
+        - `self_st_gradient_`: Self-steering gradient.
+        - `velocity`: Current vehicle velocity.
+    - **Outputs**:
+        - `st_ang_pid`: Desired steering angle.
+    
+    ---
+    
+    ### **4. Process Flow and Data Sizes**
+    
+    ### **4.1. Process Flow**
+    
+    1. **Odometry Calculation** (Task 1):
+        - Update lateral and heading deviations.
+    2. **Control Deviation Calculation** (Task 2):
+        - Compute differences between current state and target trajectory.
+    3. **PID Controller Implementation** (Task 3):
+        - Derive the output equation for feedback control.
+    4. **Longitudinal Controller** (Task 4):
+        - Adjust vehicle speed using a PID controller.
+    5. **Cascaded Lateral Controller** (Task 5):
+        - Compute desired yaw rate using a cascaded PID structure.
+    6. **Inverse Single-Track Model** (Task 6):
+        - Convert yaw rate into a steering angle.
+    
+    ### **4.2. Data Sizes**
+    
+    - **Input Data**:
+        - `cur_vehicle_state_`: Contains `yaw_rate`, `velocity`, etc.
+        - `y_tgt_`, `psi_tgt_`: Target values from the trajectory.
+    - **Intermediate Data**:
+        - `odom_dy_`, `odom_dpsi_`: Odometry outputs.
+        - `dy_`, `dpsi_`: Control deviations.
+    - **Output Data**:
+        - `a_fb_v`: Feedback acceleration for longitudinal control.
+        - `psi_dot_des`: Desired yaw rate.
+        - `st_ang_pid`: Desired steering angle.
+    
+    ---
+    
+    ### **5. Network Architectures, Models, Hyperparameters, and Parameters**
+    
+    ### **5.1. Network Architecture**
+    
+    - **Controller Structure**:
+        - TrajectoryCtrl.cpp: Handles odometry, deviations, and cascaded lateral control.
+        - PID.cpp: Implements the discrete PID controller.
+    
+    ### **5.2. Models**
+    
+    - **Inverse Single-Track Model**:
+        - Simplified representation of vehicle dynamics for steering calculations.
+    
+    ### **5.3. Hyperparameters**
+    
+    - PID gains (`Kp_`, `Ki_`, `Kd_`): Tuned for optimal performance.
+    - Sampling time (`dt`): Defines the frequency of updates.
+    
+    ### **5.4. Parameters**
+    
+    - `wheelbase_`: Fixed parameter based on vehicle design.
+    - `self_st_gradient_`: Characteristic of the vehicle's self-steering behavior.
+    
+    ---
+    
+    ### **6. Summary**
+    
+    This assignment integrates theoretical concepts of vehicle stabilization with practical implementation in ROS. By completing the tasks, you:
+    
+    - Implemented odometry equations to track vehicle deviations.
+    - Designed a PID controller for feedback control.
+    - Developed longitudinal and lateral controllers for precise trajectory following.
+    - Utilized an inverse single-track model to calculate steering angles.
+    
+    Understanding these processes enables you to build robust autonomous driving systems capable of handling various disturbances and maintaining stability.
+    
+    [Stabilization-Level - Solutions _ Vehicle Guidance _ Automated and Connected Driving Challenges _ edX.pdf](attachment:7634a115-da86-43f4-b9bf-88fe024b2100:Stabilization-Level_-_Solutions___Vehicle_Guidance___Automated_and_Connected_Driving_Challenges___edX.pdf)
+    
+</aside>
