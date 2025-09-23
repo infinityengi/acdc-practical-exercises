@@ -1,4 +1,4 @@
-# ACDC Student Portfolio - Om Prakash Sahu
+# ACDC 
 
 I am a student following the ACDC MOOC. This repository documents my study notes and hands-on exercises in perception, mapping, fusion, planning and connected driving. Each module contains a notebook demo, code snippets and results for quick review.
 
